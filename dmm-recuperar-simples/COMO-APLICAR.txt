@@ -1,0 +1,12 @@
+Copiar para dmm proceso (substituir):
+
+  src/lib/dmm/server.ts
+  src/lib/auth/server.ts
+  src/routes/login.tsx
+  src/routes/esqueci-senha.tsx   (NOVO)
+  src/routes/admin.index.tsx
+
+Depois:
+  git add .
+  git commit -m "Recuperar senha via WhatsApp e painel admin"
+  git push
