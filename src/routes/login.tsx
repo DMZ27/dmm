@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { FormEvent, useState } from "react";
-import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
+import { authClient, authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,36 +37,23 @@ function Login() {
         <h1 className="mt-2 font-display text-3xl">Entrar na central</h1>
         <p className="mt-2 text-sm text-fog">Acompanhe pedidos, orçamentos e entregas.</p>
         {authEnabled ? (
-          <div className="mt-6 space-y-3">
-            {GROK_PROVIDERS.map((p) => (
-              <Button
-                key={p.providerId}
-                type="button"
-                variant="cream"
-                className="w-full"
-                onClick={() => signIn(p.providerId, { callbackURL: "/dashboard" })}
-              >
-                Continuar com {p.label}
-              </Button>
-            ))}
-            <div className="flex items-center gap-3 text-[11px] tracking-wide text-mist uppercase">
-              <span className="h-px flex-1 bg-line" />
-              ou email
-              <span className="h-px flex-1 bg-line" />
+          <form onSubmit={onEmail} className="mt-6 space-y-3">
+            <Field label="Email">
+              <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            </Field>
+            <Field label="Senha">
+              <Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+            </Field>
+            <div className="flex justify-end">
+              <Link to="/esqueci-senha" className="text-sm font-semibold text-brass hover:underline">
+                Esqueci a senha
+              </Link>
             </div>
-            <form onSubmit={onEmail} className="space-y-3">
-              <Field label="Email">
-                <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-              </Field>
-              <Field label="Senha">
-                <Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-              </Field>
-              <Button type="submit" className="w-full" disabled={busy}>
-                {busy ? "A entrar…" : "Entrar"}
-              </Button>
-              {msg && <p className="rounded-[12px] bg-wait/10 px-3 py-2 text-sm text-wait">{msg}</p>}
-            </form>
-          </div>
+            <Button type="submit" className="w-full" disabled={busy}>
+              {busy ? "A entrar…" : "Entrar"}
+            </Button>
+            {msg && <p className="rounded-[12px] bg-wait/10 px-3 py-2 text-sm text-wait">{msg}</p>}
+          </form>
         ) : (
           <p className="mt-6 text-sm text-fog">A autenticação está desligada neste ambiente.</p>
         )}
