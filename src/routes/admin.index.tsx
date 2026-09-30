@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { adminStats, sendQuote, updateOrderStatus, type OrderListRow } from "@/lib/dmm/server";
+import { adminResetClientPassword, adminStats, sendQuote, updateOrderStatus, type OrderListRow } from "@/lib/dmm/server";
 import { ORDER_STATUSES, STATUS_META } from "@/lib/dmm/status";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,10 @@ function Admin() {
   const [err, setErr] = useState("");
   const [quote, setQuote] = useState<Record<string, { price: string; deadline: string }>>({});
   const [busy, setBusy] = useState("");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetPass, setResetPass] = useState("");
+  const [resetMsg, setResetMsg] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
 
   function load() {
     adminStats()
@@ -73,36 +77,95 @@ function Admin() {
 
   async function quoteSend(id: string) {
     const q = quote[id];
-    if (!q?.price || !q.deadline) return;
+    if (!q?.price || !q?.deadline) return;
     setBusy(id);
     try {
-      await sendQuote({ data: { orderId: id, price: Number(q.price), deadline: q.deadline } });
+      await sendQuote({
+        data: {
+          orderId: id,
+          price: Number(q.price),
+          deadline: q.deadline,
+        },
+      });
       load();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Orçamento inválido.");
-    } finally {
-      setBusy("");
+      setErr(e instanceof Error ? e.message : "Erro ao enviar orçamento");
     }
+    setBusy("");
   }
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 py-12">
-      <p className="text-xs font-semibold tracking-[0.18em] text-wait">ADMINISTRAÇÃO</p>
-      <h1 className="mt-2 font-display text-4xl">Central DMM</h1>
-      <p className="mt-2 text-fog">Pedidos, orçamentos e entrega — Benguela.</p>
-      <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[
-          ["Pedidos", data.counts.orders],
-          ["Clientes", data.counts.clients],
-          ["Em curso", data.counts.production],
-          ["Concluídos", data.counts.completed],
-        ].map(([k, v]) => (
-          <div key={k as string} className="rounded-[20px] bg-cream p-5">
+      <h1 className="font-display text-3xl font-bold">Painel admin</h1>
+      <p className="mt-1 text-sm text-fog">Pedidos, orçamentos e recuperação de acesso.</p>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {(
+          [
+            ["Pedidos", data.counts.orders],
+            ["Clientes", data.counts.clients],
+            ["Em curso", data.counts.production],
+            ["Concluídos", data.counts.completed],
+          ] as const
+        ).map(([k, v]) => (
+          <div key={k} className="rounded-[20px] bg-cream p-5">
             <p className="text-xs font-semibold tracking-wide text-fog">{k}</p>
             <p className="mt-2 font-display text-3xl tabular-nums">{v}</p>
           </div>
         ))}
       </div>
+
+      <section className="mt-10 rounded-[20px] border border-line bg-cream p-6">
+        <h2 className="font-display text-xl font-bold">Recuperar acesso de cliente</h2>
+        <p className="mt-1 text-sm text-fog">
+          Quando um cliente pedir ajuda no WhatsApp, defina aqui uma senha temporária.
+          Depois envie-lhe a senha pelo WhatsApp para entrar de novo.
+        </p>
+        <form
+          className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setResetBusy(true);
+            setResetMsg("");
+            void adminResetClientPassword({ data: { email: resetEmail, newPassword: resetPass } })
+              .then(() => {
+                setResetMsg(`Senha actualizada para ${resetEmail}. Envie-a ao cliente pelo WhatsApp.`);
+                setResetPass("");
+              })
+              .catch((err) => setResetMsg(err instanceof Error ? err.message : "Erro"))
+              .finally(() => setResetBusy(false));
+          }}
+        >
+          <div className="flex-1">
+            <label className="text-xs font-semibold text-fog">Email da conta</label>
+            <Input
+              type="email"
+              required
+              className="mt-1"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              placeholder="cliente@email.com"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="text-xs font-semibold text-fog">Nova senha (mín. 8)</label>
+            <Input
+              type="text"
+              required
+              minLength={8}
+              className="mt-1"
+              value={resetPass}
+              onChange={(e) => setResetPass(e.target.value)}
+              placeholder="senha-temporaria"
+            />
+          </div>
+          <Button type="submit" disabled={resetBusy}>
+            {resetBusy ? "A guardar…" : "Definir senha"}
+          </Button>
+        </form>
+        {resetMsg && <p className="mt-3 text-sm text-fog">{resetMsg}</p>}
+      </section>
+
       <div className="mt-8 space-y-4">
         {data.orders.length === 0 && (
           <div className="rounded-[24px] bg-cream p-8">
