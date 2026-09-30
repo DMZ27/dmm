@@ -436,3 +436,49 @@ export const sendQuote = createServerFn({ method: "POST" })
     `;
     return { ok: true as const };
   });
+/** Admin define uma senha nova para um cliente (recuperação manual via WhatsApp). */
+export const adminResetClientPassword = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { email: string; newPassword: string }) => input)
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const profile = await ensureProfile(sql, context.userId);
+    requireAdmin(profile);
+
+    const email = String(data.email || "").trim().toLowerCase();
+    const newPassword = String(data.newPassword || "");
+    if (!email || !email.includes("@")) throw new Error("Indique um email válido.");
+    if (newPassword.length < 8) throw new Error("A senha deve ter pelo menos 8 caracteres.");
+
+    const users = await sql<{ id: string }>`
+      select id from "user" where lower(email) = ${email} limit 1
+    `;
+    if (!users[0]) throw new Error("Não existe conta com esse email.");
+
+    const userId = users[0].id;
+    const { hashPassword } = await import("better-auth/crypto");
+    const hashed = await hashPassword(newPassword);
+
+    const accounts = await sql<{ id: string }>`
+      select id from account
+      where "userId" = ${userId} and "providerId" = 'credential'
+      limit 1
+    `;
+    if (accounts[0]) {
+      await sql`
+        update account
+        set password = ${hashed}, "updatedAt" = now()
+        where id = ${accounts[0].id}
+      `;
+    } else {
+      const id = crypto.randomUUID();
+      await sql`
+        insert into account (
+          id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt"
+        ) values (
+          ${id}, ${userId}, 'credential', ${userId}, ${hashed}, now(), now()
+        )
+      `;
+    }
+    return { ok: true as const, email };
+  });
