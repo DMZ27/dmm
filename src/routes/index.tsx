@@ -91,21 +91,29 @@ function Home() {
 
   return (
     <>
-      <section className="hero-bg relative overflow-hidden text-paper">
-        <div className="pointer-events-none absolute -right-20 top-10 h-72 w-72 rounded-full bg-brass/10 blur-3xl" />
-        <div className="pointer-events-none absolute -left-10 bottom-0 h-56 w-56 rounded-full bg-brass/5 blur-3xl" />
+            <section className="hero-bg relative overflow-hidden text-paper">
+        {/* fundo tipo quadro negro */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "radial-gradient(ellipse 80% 60% at 55% 40%, rgba(232,185,35,0.12), transparent 55%), linear-gradient(180deg, #0a1628 0%, #0d1f38 50%, #0a1628 100%)",
+          }}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-[url('/images/hero-estudante.webp')] bg-cover bg-center opacity-[0.15] mix-blend-luminosity lg:opacity-0" />
 
-        <div className="relative mx-auto grid w-full max-w-[1180px] items-center gap-10 px-4 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:py-16">
-          <div>
+        <div className="relative mx-auto grid w-full max-w-[1180px] items-center gap-8 px-4 py-10 lg:grid-cols-[1fr_1.05fr_0.95fr] lg:gap-6 lg:py-14">
+          {/* Texto */}
+          <div className="order-1 lg:order-1">
             <p className="text-xs font-semibold tracking-[0.22em] text-brass-2">
               CENTRAL DE SERVIÇOS DMM
             </p>
-            <h1 className="mt-4 font-display text-[clamp(2.2rem,4.8vw,3.6rem)] font-extrabold leading-[1.08] tracking-[-0.03em]">
+            <h1 className="mt-4 font-display text-[clamp(2.1rem,4.5vw,3.4rem)] font-extrabold leading-[1.08] tracking-[-0.03em]">
               O Seu Projeto,
               <br />
               <span className="text-brass-2">Nosso Compromisso!</span>
             </h1>
-            <p className="mt-5 max-w-lg text-base leading-relaxed text-paper/80">
+            <p className="mt-4 max-w-md text-base leading-relaxed text-paper/80">
               Trabalhos académicos, design, informática e muito mais. Aqui você encontra qualidade,
               rapidez e total confiança.
             </p>
@@ -119,27 +127,37 @@ function Home() {
               ))}
             </ul>
 
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8">
               <Button asChild className="cta-pulse h-12 rounded-full bg-brass px-7 text-ink hover:bg-brass-2">
                 <Link to="/servicos">
                   Encomendar Agora <ArrowRight size={16} />
                 </Link>
               </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="h-12 rounded-full border-paper/30 text-paper hover:bg-paper/10"
-              >
-                <a href="#servicos">Ver serviços</a>
-              </Button>
             </div>
           </div>
 
-          <div className="relative">
-            <div className="absolute -inset-1 rounded-[28px] bg-gradient-to-br from-brass/30 to-transparent opacity-60 blur-sm" />
+          {/* Foto central (como na referência) */}
+          <div className="order-3 flex justify-center lg:order-2">
+            <div className="relative w-full max-w-[340px]">
+              <div className="pointer-events-none absolute -inset-6 rounded-full bg-brass/10 blur-2xl" />
+              <img
+                src="/images/hero-estudante.webp"
+                alt="Estudante DMM — qualidade e compromisso"
+                className="relative z-[1] mx-auto w-full rounded-2xl object-cover shadow-[0_20px_60px_rgba(0,0,0,0.45)] ring-2 ring-brass/30"
+              />
+              <p className="pointer-events-none absolute -right-2 bottom-8 z-[2] hidden rotate-[-8deg] rounded-lg bg-brass px-3 py-1.5 text-xs font-bold text-ink shadow-lg sm:block">
+                Grandes sonhos.
+                <br />
+                Grandes conquistas.
+              </p>
+            </div>
+          </div>
+
+          {/* Cartão encomenda */}
+          <div className="order-2 lg:order-3">
             <form
               onSubmit={start}
-              className="relative rounded-[24px] bg-cream p-6 text-ink shadow-[var(--shadow-soft)]"
+              className="rounded-[22px] bg-white p-6 text-ink shadow-[0_24px_60px_rgba(0,0,0,0.35)]"
             >
               <h2 className="font-display text-xl font-bold">Encomende o Seu Trabalho</h2>
               <p className="mt-1 text-sm text-fog">Preencha o formulário e receba um orçamento.</p>
@@ -175,7 +193,7 @@ function Home() {
                   rel="noreferrer"
                   className="flex items-center gap-2 text-sm font-semibold text-good hover:underline"
                 >
-                  <span className="grid h-8 w-8 place-items-center rounded-full bg-good/10 text-good text-base">
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-good/10 text-base text-good">
                     ☎
                   </span>
                   WhatsApp / Transferências Express
@@ -192,7 +210,7 @@ function Home() {
         </div>
       </section>
 
-      <section id="servicos" className="bg-paper">
+<section id="servicos" className="bg-paper">
         <div className="mx-auto w-full max-w-[1180px] px-4 py-16">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
@@ -244,6 +262,86 @@ function Home() {
                 </Link>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+
+      <section id="sobre" className="bg-paper">
+        <div className="mx-auto grid w-full max-w-[1180px] gap-10 px-4 py-16 md:grid-cols-2 md:items-center">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="h-1 w-8 rounded-full bg-brass" />
+              <p className="text-xs font-semibold tracking-[0.18em] text-brass">SOBRE NÓS</p>
+            </div>
+            <h2 className="mt-3 font-display text-3xl font-bold">Ideias que se tornam resultados</h2>
+            <p className="mt-4 text-base leading-relaxed text-fog">
+              A DMM é uma central de serviços em Benguela dedicada a trabalhos académicos, design,
+              informática e apoio personalizado. Unimos qualidade, prazos claros e acompanhamento
+              próximo — do primeiro contacto à entrega.
+            </p>
+            <ul className="mt-6 space-y-2 text-sm text-ink">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-brass" /> Atendimento em Benguela e online
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-brass" /> Orçamento rápido pelo site ou WhatsApp
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-brass" /> Acompanhamento do pedido na área do cliente
+              </li>
+            </ul>
+          </div>
+          <div className="rounded-[24px] bg-navy p-8 text-paper">
+            <p className="font-display text-2xl font-bold leading-snug">
+              “Grandes sonhos. Grandes conquistas.”
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-paper/75">
+              Cada pedido é tratado com atenção: desde a monografia até ao convite, do site à
+              configuração do computador. O nosso compromisso é entregar o que prometemos.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="depoimentos" className="bg-cream">
+        <div className="mx-auto w-full max-w-[1180px] px-4 py-16">
+          <div className="flex items-center gap-2">
+            <span className="h-1 w-8 rounded-full bg-brass" />
+            <p className="text-xs font-semibold tracking-[0.18em] text-brass">DEPOIMENTOS</p>
+          </div>
+          <h2 className="mt-3 font-display text-3xl font-bold">O que dizem os nossos clientes</h2>
+          <div className="mt-8 grid gap-5 md:grid-cols-3">
+            {[
+              {
+                t: "Entregaram a monografia a tempo e com formatação impecável. Recomendo.",
+                n: "Ana M.",
+                c: "Trabalhos académicos",
+              },
+              {
+                t: "Os convites ficaram exactos ao que pedi. Comunicação clara pelo WhatsApp.",
+                n: "Carlos T.",
+                c: "Design e impressão",
+              },
+              {
+                t: "Resolveram a configuração do PC no mesmo dia. Serviço sério.",
+                n: "João P.",
+                c: "Informática",
+              },
+            ].map((d) => (
+              <blockquote key={d.n} className="rounded-[20px] bg-white p-6 shadow-sm">
+                <div className="mb-3 flex gap-1 text-brass">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star key={i} size={14} fill="currentColor" />
+                  ))}
+                </div>
+                <p className="text-sm leading-relaxed text-fog">“{d.t}”</p>
+                <footer className="mt-4 text-sm font-semibold text-ink">
+                  {d.n}
+                  <span className="block text-xs font-normal text-fog">{d.c}</span>
+                </footer>
+              </blockquote>
+            ))}
           </div>
         </div>
       </section>

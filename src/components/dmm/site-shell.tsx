@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { cn, whatsappHref } from "@/lib/utils";
 
 const NAV = [
-  { to: "/", label: "Início" },
-  { to: "/servicos", label: "Serviços" },
-  { to: "/contato", label: "Contactos" },
+  { to: "/", label: "Início", hash: undefined as string | undefined },
+  { to: "/servicos", label: "Serviços", hash: undefined },
+  { to: "/", label: "Sobre Nós", hash: "sobre" },
+  { to: "/", label: "Depoimentos", hash: "depoimentos" },
+  { to: "/contato", label: "Contactos", hash: undefined },
 ];
 
 function AuthSlot() {
@@ -44,6 +46,47 @@ function AuthSlot() {
   );
 }
 
+function NavLink({
+  to,
+  label,
+  hash,
+  pathname,
+  onClick,
+  mobile,
+}: {
+  to: string;
+  label: string;
+  hash?: string;
+  pathname: string;
+  onClick?: () => void;
+  mobile?: boolean;
+}) {
+  const active = !hash && pathname === to;
+  const className = cn(
+    mobile ? "rounded-xl px-3 py-3 text-sm font-medium" : "rounded-full px-4 py-2 font-medium transition-colors",
+    active
+      ? mobile
+        ? "bg-brass text-ink"
+        : "bg-brass text-ink"
+      : mobile
+        ? "hover:bg-white/5"
+        : "text-paper/80 hover:bg-white/10 hover:text-paper",
+  );
+
+  if (hash) {
+    return (
+      <a href={`/#${hash}`} onClick={onClick} className={className}>
+        {label}
+      </a>
+    );
+  }
+  return (
+    <Link to={to} onClick={onClick} className={className}>
+      {label}
+    </Link>
+  );
+}
+
 export function Header() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
@@ -54,20 +97,9 @@ export function Header() {
           <img src="/logo-dmm.svg" alt="DMM" className="h-9 w-auto" />
         </Link>
 
-        <nav className="hidden items-center gap-1 text-sm md:flex">
+        <nav className="hidden items-center gap-1 text-sm lg:flex">
           {NAV.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={cn(
-                "rounded-full px-4 py-2 font-medium transition-colors",
-                pathname === item.to
-                  ? "bg-brass text-ink"
-                  : "text-paper/80 hover:bg-white/10 hover:text-paper",
-              )}
-            >
-              {item.label}
-            </Link>
+            <NavLink key={item.label} {...item} pathname={pathname} />
           ))}
         </nav>
 
@@ -77,7 +109,7 @@ export function Header() {
           </div>
           <button
             type="button"
-            className="grid h-10 w-10 place-items-center rounded-full border border-white/20 md:hidden"
+            className="grid h-10 w-10 place-items-center rounded-full border border-white/20 lg:hidden"
             aria-label={open ? "Fechar menu" : "Abrir menu"}
             onClick={() => setOpen((v) => !v)}
           >
@@ -87,29 +119,18 @@ export function Header() {
       </div>
 
       {open && (
-        <div className="border-t border-white/10 px-4 py-4 md:hidden">
+        <div className="border-t border-white/10 px-4 py-4 lg:hidden">
           <div className="flex flex-col gap-1">
             {NAV.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
+              <NavLink
+                key={item.label}
+                {...item}
+                pathname={pathname}
+                mobile
                 onClick={() => setOpen(false)}
-                className={cn(
-                  "rounded-xl px-3 py-3 text-sm font-medium",
-                  pathname === item.to ? "bg-brass text-ink" : "hover:bg-white/5",
-                )}
-              >
-                {item.label}
-              </Link>
+              />
             ))}
-            <Link
-              to="/dashboard"
-              onClick={() => setOpen(false)}
-              className="rounded-xl px-3 py-3 text-sm hover:bg-white/5"
-            >
-              Área do cliente
-            </Link>
-            <div className="px-3 py-2">
+            <div className="mt-3 border-t border-white/10 pt-3 md:hidden">
               <AuthSlot />
             </div>
           </div>
@@ -121,94 +142,61 @@ export function Header() {
 
 export function Footer() {
   return (
-    <footer className="bg-navy text-paper">
+    <footer className="border-t border-white/10 bg-navy text-paper">
       <div className="mx-auto grid w-full max-w-[1180px] gap-10 px-4 py-14 md:grid-cols-4">
         <div>
-          <img src="/logo-dmm.svg" alt="DMM" className="h-11 w-auto" />
-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-mist">
-            {CONTACT.slogan}. Central de serviços em Benguela — pedido, orçamento e entrega num só sítio.
+          <img src="/logo-dmm.svg" alt="DMM" className="h-10 w-auto" />
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-paper/70">
+            Ideias que se tornam resultados. Central de serviços em Benguela — pedido, orçamento e
+            entrega num só sítio.
           </p>
         </div>
-
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-brass">SERVIÇOS</p>
-          <ul className="mt-4 space-y-2 text-sm text-paper/75">
-            <li>
-              <Link to="/servicos" search={{ cat: "academico", service: undefined, nota: undefined }} className="hover:text-brass-2">
-                Trabalhos académicos
-              </Link>
-            </li>
-            <li>
-              <Link to="/servicos" search={{ cat: "design", service: undefined, nota: undefined }} className="hover:text-brass-2">
-                Design e imagem
-              </Link>
-            </li>
-            <li>
-              <Link to="/servicos" search={{ cat: "tech", service: undefined, nota: undefined }} className="hover:text-brass-2">
-                Informática e tecnologia
-              </Link>
-            </li>
-            <li>
-              <Link to="/servicos" search={{ cat: "outros", service: undefined, nota: undefined }} className="hover:text-brass-2">
-                Pedidos personalizados
-              </Link>
-            </li>
+          <p className="text-xs font-bold tracking-[0.18em] text-brass-2">SERVIÇOS</p>
+          <ul className="mt-3 space-y-2 text-sm text-paper/75">
+            <li>Trabalhos académicos</li>
+            <li>Design e imagem</li>
+            <li>Informática e tecnologia</li>
+            <li>Pedidos personalizados</li>
           </ul>
         </div>
-
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-brass">CONTACTOS</p>
-          <ul className="mt-4 space-y-3 text-sm text-paper/80">
+          <p className="text-xs font-bold tracking-[0.18em] text-brass-2">CONTACTOS</p>
+          <ul className="mt-3 space-y-3 text-sm text-paper/80">
             <li className="flex items-center gap-2">
-              <MessageCircle size={14} className="text-brass" />
-              <a href={whatsappHref()} className="hover:text-brass-2">
-                {CONTACT.phoneDisplay}
-              </a>
-              <span className="rounded-full bg-good/20 px-1.5 py-0.5 text-[10px] font-semibold text-good">
+              <MessageCircle size={16} className="text-brass-2" />
+              {CONTACT.phoneDisplay}
+              <span className="rounded-full bg-good/20 px-2 py-0.5 text-[10px] font-semibold text-good">
                 Disponível
               </span>
             </li>
             <li className="flex items-center gap-2">
-              <Mail size={14} className="text-brass" />
-              <a href={`mailto:${CONTACT.email}`} className="hover:text-brass-2">
-                {CONTACT.email}
-              </a>
+              <Mail size={16} className="text-brass-2" />
+              {CONTACT.email}
             </li>
             <li className="flex items-center gap-2">
-              <MapPin size={14} className="text-brass" />
-              {CONTACT.city}
+              <MapPin size={16} className="text-brass-2" />
+              Benguela, Angola
             </li>
           </ul>
         </div>
-
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-brass">ATENDIMENTO</p>
-          <p className="mt-4 text-sm leading-relaxed text-paper/75">
+          <p className="text-xs font-bold tracking-[0.18em] text-brass-2">ATENDIMENTO</p>
+          <p className="mt-3 text-sm leading-relaxed text-paper/75">
             Qualquer zona de Benguela, conforme o serviço. Transferências Express no mesmo número.
           </p>
           <a
-            className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-brass px-5 text-sm font-bold text-ink transition hover:bg-brass-2"
-            href={whatsappHref("Olá DMM, gostaria de um orçamento.")}
+            href={whatsappHref("Olá DMM!")}
             target="_blank"
             rel="noreferrer"
+            className="mt-4 inline-flex h-11 items-center gap-2 rounded-full bg-brass px-5 text-sm font-bold text-ink"
           >
-            <MessageCircle size={16} />
-            WhatsApp
+            <MessageCircle size={16} /> WhatsApp
           </a>
         </div>
       </div>
-
-      <div className="border-t border-white/10">
-        <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-2 px-4 py-5 text-xs text-mist sm:flex-row sm:items-center sm:justify-between">
-          <span>© {new Date().getFullYear()} DMM — Todos os direitos reservados.</span>
-          <span className="flex flex-wrap gap-4">
-            <Link to="/privacidade" className="hover:text-brass-2">Privacidade</Link>
-            <Link to="/termos" className="hover:text-brass-2">Termos</Link>
-            <span className="hidden text-paper/40 sm:inline">
-              Mais do que serviços, é a realização dos seus objectivos.
-            </span>
-          </span>
-        </div>
+      <div className="border-t border-white/10 py-4 text-center text-xs text-paper/50">
+        © {new Date().getFullYear()} DMM — Todos os direitos reservados.
       </div>
     </footer>
   );
@@ -216,9 +204,9 @@ export function Footer() {
 
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-paper text-ink">
+    <div className="min-h-screen bg-paper text-ink">
       <Header />
-      <main className="flex-1">{children}</main>
+      <main>{children}</main>
       <Footer />
     </div>
   );
