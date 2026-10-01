@@ -60,6 +60,9 @@ function Dashboard() {
               </Button>
             )}
             <Button asChild className="h-11 rounded-full">
+              <Link to="/assistente">Assistente IA</Link>
+            </Button>
+            <Button asChild className="h-11 rounded-full">
               <Link to="/servicos">
                 <Plus size={16} /> Novo pedido
               </Link>
