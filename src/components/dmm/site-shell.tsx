@@ -22,12 +22,12 @@ function AuthSlot() {
   }
   if (user) {
     return (
-      <div className="flex items-center gap-3 text-paper">
+      <div className="flex items-center gap-2 text-paper">
         <Link
           to="/dashboard"
-          className="hidden h-10 items-center text-sm font-semibold text-brass-2 underline-offset-4 hover:underline sm:inline-flex"
+          className="hidden h-10 items-center rounded-full px-3 text-sm font-semibold text-brass-2 hover:bg-white/10 sm:inline-flex"
         >
-          Pedidos
+          Meus pedidos
         </Link>
         <div className="[&_span.text-sm.font-medium]:hidden">
           <UserButton />
@@ -43,6 +43,37 @@ function AuthSlot() {
     >
       <Link to="/login">Entrar / Registar</Link>
     </Button>
+  );
+}
+
+function AccountMenuLinks({ onClick }: { onClick?: () => void }) {
+  const { user, isPending } = useCurrentUserState();
+  if (isPending || !user) return null;
+  return (
+    <div className="mt-2 space-y-1 border-t border-white/10 pt-3">
+      <p className="px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-brass-2">A sua conta</p>
+      <Link
+        to="/dashboard"
+        onClick={onClick}
+        className="block rounded-xl px-3 py-3 text-sm font-semibold hover:bg-white/5"
+      >
+        Meus pedidos
+      </Link>
+      <Link
+        to="/admin"
+        onClick={onClick}
+        className="block rounded-xl px-3 py-3 text-sm font-semibold hover:bg-white/5"
+      >
+        Painel admin
+      </Link>
+      <Link
+        to="/conta"
+        onClick={onClick}
+        className="block rounded-xl px-3 py-3 text-sm font-semibold hover:bg-white/5"
+      >
+        Definições da conta
+      </Link>
+    </div>
   );
 }
 
@@ -64,13 +95,7 @@ function NavLink({
   const active = !hash && pathname === to;
   const className = cn(
     mobile ? "rounded-xl px-3 py-3 text-sm font-medium" : "rounded-full px-4 py-2 font-medium transition-colors",
-    active
-      ? mobile
-        ? "bg-brass text-ink"
-        : "bg-brass text-ink"
-      : mobile
-        ? "hover:bg-white/5"
-        : "text-paper/80 hover:bg-white/10 hover:text-paper",
+    active ? "bg-brass text-ink" : mobile ? "hover:bg-white/5" : "text-paper/80 hover:bg-white/10 hover:text-paper",
   );
 
   if (hash) {
@@ -130,6 +155,7 @@ export function Header() {
                 onClick={() => setOpen(false)}
               />
             ))}
+            <AccountMenuLinks onClick={() => setOpen(false)} />
             <div className="mt-3 border-t border-white/10 pt-3 md:hidden">
               <AuthSlot />
             </div>
