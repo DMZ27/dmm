@@ -107,9 +107,14 @@ function Admin() {
             <h1 className="mt-1 font-display text-3xl font-bold sm:text-4xl">Painel admin</h1>
             <p className="mt-1 text-sm text-fog">Pedidos, orçamentos e recuperação de acesso.</p>
           </div>
-          <Button asChild variant="cream" className="h-11 w-fit rounded-full">
-            <Link to="/dashboard">Área do cliente</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="cream" className="h-11 rounded-full">
+              <Link to="/admin/conteudo">Conteúdo / Blog</Link>
+            </Button>
+            <Button asChild variant="cream" className="h-11 rounded-full">
+              <Link to="/dashboard">Área do cliente</Link>
+            </Button>
+          </div>
         </div>
 
         <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">

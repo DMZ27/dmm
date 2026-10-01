@@ -18,6 +18,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { AutoSlideCarousel, ServiceMarquee } from "@/components/dmm/carousel";
+import { HomeCmsSections } from "@/components/dmm/home-cms";
 import { cn, whatsappHref } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -405,6 +406,7 @@ function Home() {
           ))}
         </div>
       </section>
+      <HomeCmsSections />
     </>
   );
 }
