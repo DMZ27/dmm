@@ -33,7 +33,7 @@ function AssistentePage() {
   if (!user) return <RedirectToSignIn />;
 
   return (
-    <div className="flex h-[calc(100vh-70px)] flex-col overflow-hidden bg-[#f4f5f8]">
+    <div className="relative flex min-h-0 flex-col overflow-hidden bg-[#f4f5f8]">
       {/* Barra superior */}
       <div className="border-b border-line bg-white">
         <div className="mx-auto flex w-full max-w-[920px] flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -77,19 +77,14 @@ function AssistentePage() {
       </div>
 
       {/* Conteúdo */}
-      <div className="mx-auto flex w-full max-w-[920px] min-h-0 flex-1 flex-col overflow-hidden px-0 sm:px-4">
-        {tab === "chat" && <ChatPanel />}
-        {tab === "pdf" && (
-          <div className="flex-1 overflow-y-auto px-4 py-6">
-            <PdfPanel />
-          </div>
-        )}
-        {tab === "cv" && (
-          <div className="flex-1 overflow-y-auto px-4 py-6">
-            <CvPanel />
-          </div>
-        )}
-      </div>
+      {tab === "chat" ? (
+        <ChatPanel />
+      ) : (
+        <div className="mx-auto w-full max-w-[920px] flex-1 overflow-y-auto px-4 py-6">
+          {tab === "pdf" && <PdfPanel />}
+          {tab === "cv" && <CvPanel />}
+        </div>
+      )}
     </div>
   );
 }
@@ -100,14 +95,15 @@ function ChatPanel() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Só a lista de mensagens faz scroll — a barra de baixo não se mexe
+  // Scroll apenas dentro da lista — nunca na página inteira
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    });
   }, [messages, busy, err]);
 
   async function send(e?: FormEvent) {
@@ -126,7 +122,7 @@ function ChatPanel() {
       setErr(ex instanceof Error ? ex.message : "Erro");
     } finally {
       setBusy(false);
-      textareaRef.current?.focus();
+      requestAnimationFrame(() => textareaRef.current?.focus());
     }
   }
 
@@ -138,11 +134,18 @@ function ChatPanel() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-130px)] min-h-[420px] flex-col overflow-hidden">
-      {/* Só esta zona faz scroll */}
-      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5">
+    <>
+      {/* Zona de mensagens: ocupa o ecrã e deixa espaço em baixo para a barra FIXA */}
+      <div
+        ref={listRef}
+        className="overflow-y-auto overscroll-contain px-4 pt-4"
+        style={{
+          height: "calc(100dvh - 7.5rem)",
+          paddingBottom: "7.5rem",
+        }}
+      >
         {messages.length === 0 && !busy && (
-          <div className="mx-auto flex max-w-[640px] flex-col items-center px-4 py-12 text-center">
+          <div className="mx-auto flex max-w-[640px] flex-col items-center px-4 py-10 text-center">
             <div className="grid h-14 w-14 place-items-center rounded-2xl bg-navy text-brass shadow-md">
               <Bot size={28} />
             </div>
@@ -215,48 +218,51 @@ function ChatPanel() {
               </div>
             </div>
           )}
-          <div ref={bottomRef} className="h-1 shrink-0" />
         </div>
       </div>
 
-      {/* Barra fixa — não sobe com o scroll */}
-      <div className="shrink-0 border-t border-line bg-[#f4f5f8] px-4 py-3">
-        {err && (
-          <p className="mx-auto mb-2 max-w-[720px] rounded-xl bg-bad/10 px-4 py-2 text-sm text-bad">{err}</p>
-        )}
-        <form
-          onSubmit={send}
-          className="mx-auto flex max-w-[720px] items-end gap-2 rounded-2xl border border-line bg-white p-2 shadow-md"
-        >
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Escreva a sua mensagem…"
-            disabled={busy}
-            className="max-h-36 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-mist"
-          />
-          <button
-            type="submit"
-            disabled={busy || !input.trim()}
-            className={cn(
-              "grid h-10 w-10 shrink-0 place-items-center rounded-full transition",
-              input.trim() && !busy
-                ? "bg-navy text-brass hover:bg-navy/90"
-                : "cursor-not-allowed bg-line text-mist",
-            )}
-            aria-label="Enviar"
+      {/* BARRA SEMPRE VISÍVEL — fixed no fundo do ecrã */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-[#f4f5f8]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md sm:px-4"
+      >
+        <div className="mx-auto w-full max-w-[720px]">
+          {err && (
+            <p className="mb-2 rounded-xl bg-bad/10 px-4 py-2 text-sm text-bad">{err}</p>
+          )}
+          <form
+            onSubmit={send}
+            className="flex items-end gap-2 rounded-2xl border border-line bg-white p-2 shadow-lg"
           >
-            <ArrowUp size={18} strokeWidth={2.5} />
-          </button>
-        </form>
-        <p className="mx-auto mt-2 max-w-[720px] text-center text-[11px] text-fog">
-          Enter para enviar · Shift+Enter para nova linha
-        </p>
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Escreva a sua mensagem…"
+              disabled={busy}
+              className="max-h-32 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-mist"
+            />
+            <button
+              type="submit"
+              disabled={busy || !input.trim()}
+              className={cn(
+                "grid h-10 w-10 shrink-0 place-items-center rounded-full transition",
+                input.trim() && !busy
+                  ? "bg-navy text-brass hover:bg-navy/90"
+                  : "cursor-not-allowed bg-line text-mist",
+              )}
+              aria-label="Enviar"
+            >
+              <ArrowUp size={18} strokeWidth={2.5} />
+            </button>
+          </form>
+          <p className="mt-1.5 text-center text-[11px] text-fog">
+            Enter para enviar · Shift+Enter nova linha
+          </p>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
