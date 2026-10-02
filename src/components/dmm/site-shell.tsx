@@ -119,7 +119,7 @@ export function Header() {
     <header className="nav-blur sticky top-0 z-40 border-b border-white/10 text-paper">
       <div className="mx-auto flex h-[70px] w-full max-w-[1180px] items-center justify-between gap-4 px-4">
         <Link to="/" className="flex items-center gap-3">
-          <img src="/logo-dmm.svg" alt="DMM" className="h-9 w-auto" />
+          <img src="/logo-dmm.png" alt="DMM" className="h-10 w-auto object-contain" />
         </Link>
 
         <nav className="hidden items-center gap-1 text-sm lg:flex">
@@ -171,7 +171,7 @@ export function Footer() {
     <footer className="border-t border-white/10 bg-navy text-paper">
       <div className="mx-auto grid w-full max-w-[1180px] gap-10 px-4 py-14 md:grid-cols-4">
         <div>
-          <img src="/logo-dmm.svg" alt="DMM" className="h-10 w-auto" />
+          <img src="/logo-dmm.png" alt="DMM" className="h-12 w-auto object-contain" />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-paper/70">
             Ideias que se tornam resultados. Central de serviços em Benguela — pedido, orçamento e
             entrega num só sítio.
