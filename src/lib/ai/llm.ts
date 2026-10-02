@@ -17,7 +17,7 @@ export async function chatLLM(messages: ChatMessage[]): Promise<string> {
     );
   }
   const base = (env("AI_BASE_URL") || "https://api.groq.com/openai/v1").replace(/\/$/, "");
-  const model = env("AI_MODEL") || "llama-3.1-8b-instant";
+  const model = env("AI_MODEL") || "openai/gpt-oss-20b";
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: {
