@@ -134,7 +134,7 @@ export const CONTACT = {
   name: "Daniel Menezes Monteiro",
   brand: "DMM",
   slogan: "Ideias que se tornam resultados",
-  email: "dmm.servicos@gmail.com",
+  email: "menezesdaniel451@gmail.com",
   phoneDisplay: "923 078 760",
   phoneDigits: "923078760",
   city: "Benguela, Angola",

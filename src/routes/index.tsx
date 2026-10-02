@@ -27,7 +27,7 @@ const TRUST = [
   { icon: ShieldCheck, label: "Qualidade Garantida" },
   { icon: Clock3, label: "Entrega no Prazo" },
   { icon: Headphones, label: "Suporte Contínuo" },
-  { icon: Star, label: "Clientes Satisfeitos" },
+  { icon: Star, label: "Assistente IA incluído" },
 ];
 
 const SERVICE_CARDS = [
@@ -115,8 +115,8 @@ function Home() {
               <span className="text-brass-2">Nosso Compromisso!</span>
             </h1>
             <p className="mt-4 max-w-md text-base leading-relaxed text-paper/80">
-              Trabalhos académicos, design, informática e muito mais. Aqui você encontra qualidade,
-              rapidez e total confiança.
+              Trabalhos académicos, design, informática e muito mais — com qualidade, rapidez e um
+              <span className="font-semibold text-brass-2"> Assistente IA</span> para o apoiar a qualquer hora.
             </p>
 
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2">
@@ -128,13 +128,22 @@ function Home() {
               ))}
             </ul>
 
-            <div className="mt-8">
+            <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button asChild className="cta-pulse h-12 rounded-full bg-brass px-7 text-ink hover:bg-brass-2">
-                <Link to="/servicos">
-                  Encomendar Agora <ArrowRight size={16} />
+                <Link to="/registar">
+                  Criar conta grátis <ArrowRight size={16} />
                 </Link>
               </Button>
+              <Button asChild variant="cream" className="h-12 rounded-full border border-white/20 bg-white/10 px-6 text-paper hover:bg-white/15">
+                <Link to="/assistente">Experimentar Assistente IA</Link>
+              </Button>
+              <Button asChild variant="cream" className="h-12 rounded-full border border-white/15 bg-transparent px-5 text-paper/90 hover:bg-white/10">
+                <Link to="/servicos">Ver serviços</Link>
+              </Button>
             </div>
+            <p className="mt-3 text-xs text-paper/55">
+              Crie a sua conta para acompanhar pedidos e usar o assistente com segurança.
+            </p>
           </div>
 
           {/* Foto central (como na referência) */}
@@ -301,48 +310,6 @@ function Home() {
               Cada pedido é tratado com atenção: desde a monografia até ao convite, do site à
               configuração do computador. O nosso compromisso é entregar o que prometemos.
             </p>
-          </div>
-        </div>
-      </section>
-
-      <section id="depoimentos" className="bg-cream">
-        <div className="mx-auto w-full max-w-[1180px] px-4 py-16">
-          <div className="flex items-center gap-2">
-            <span className="h-1 w-8 rounded-full bg-brass" />
-            <p className="text-xs font-semibold tracking-[0.18em] text-brass">DEPOIMENTOS</p>
-          </div>
-          <h2 className="mt-3 font-display text-3xl font-bold">O que dizem os nossos clientes</h2>
-          <div className="mt-8 grid gap-5 md:grid-cols-3">
-            {[
-              {
-                t: "Entregaram a monografia a tempo e com formatação impecável. Recomendo.",
-                n: "Ana M.",
-                c: "Trabalhos académicos",
-              },
-              {
-                t: "Os convites ficaram exactos ao que pedi. Comunicação clara pelo WhatsApp.",
-                n: "Carlos T.",
-                c: "Design e impressão",
-              },
-              {
-                t: "Resolveram a configuração do PC no mesmo dia. Serviço sério.",
-                n: "João P.",
-                c: "Informática",
-              },
-            ].map((d) => (
-              <blockquote key={d.n} className="rounded-[20px] bg-white p-6 shadow-sm">
-                <div className="mb-3 flex gap-1 text-brass">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star key={i} size={14} fill="currentColor" />
-                  ))}
-                </div>
-                <p className="text-sm leading-relaxed text-fog">“{d.t}”</p>
-                <footer className="mt-4 text-sm font-semibold text-ink">
-                  {d.n}
-                  <span className="block text-xs font-normal text-fog">{d.c}</span>
-                </footer>
-              </blockquote>
-            ))}
           </div>
         </div>
       </section>

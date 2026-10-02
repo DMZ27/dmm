@@ -11,7 +11,7 @@ const NAV = [
   { to: "/", label: "Início", hash: undefined as string | undefined },
   { to: "/servicos", label: "Serviços", hash: undefined },
   { to: "/", label: "Sobre Nós", hash: "sobre" },
-  { to: "/", label: "Depoimentos", hash: "depoimentos" },
+  { to: "/assistente", label: "Assistente IA", hash: undefined },
   { to: "/contato", label: "Contactos", hash: undefined },
 ];
 
@@ -223,6 +223,9 @@ export function Footer() {
       </div>
       <div className="border-t border-white/10 py-4 text-center text-xs text-paper/50">
         © {new Date().getFullYear()} DMM — Todos os direitos reservados.
+        <span className="mt-1 block text-[11px] text-paper/40">
+          Sistema criado por Daniel Menezes Monteiro
+        </span>
       </div>
     </footer>
   );
