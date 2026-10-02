@@ -1,6 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { FormEvent, useRef, useState } from "react";
-import { FileText, MessageSquare, Sparkles, UserRound } from "lucide-react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import {
+  ArrowUp,
+  Bot,
+  FileText,
+  MessageSquare,
+  Sparkles,
+  User,
+  UserRound,
+} from "lucide-react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { aiChat, aiChatPdf, aiGenerateCv } from "@/lib/dmm/ai";
@@ -18,54 +26,69 @@ function AssistentePage() {
   const [tab, setTab] = useState<Tab>("chat");
 
   if (isPending) {
-    return <div className="mx-auto max-w-[900px] px-4 py-16 text-sm text-fog">A carregar…</div>;
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center text-sm text-fog">A carregar…</div>
+    );
   }
   if (!user) return <RedirectToSignIn />;
 
   return (
-    <div className="min-h-[75vh] bg-[#f6f7fb]">
-      <div className="mx-auto w-full max-w-[900px] px-4 py-10">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brass">Ferramentas DMM</p>
-            <h1 className="mt-1 font-display text-3xl font-bold">Assistente IA</h1>
-            <p className="mt-1 text-sm text-fog">
-              Chat de apoio, perguntas sobre PDF e geração de currículo personalizado.
-            </p>
+    <div className="flex min-h-[calc(100vh-70px)] flex-col bg-[#f4f5f8]">
+      {/* Barra superior */}
+      <div className="border-b border-line bg-white">
+        <div className="mx-auto flex w-full max-w-[920px] flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-navy text-brass">
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <h1 className="font-display text-lg font-bold leading-tight">Assistente DMM</h1>
+              <p className="text-xs text-fog">Chat · PDF · Currículo</p>
+            </div>
           </div>
-          <Button asChild variant="cream" className="h-11 rounded-full">
-            <Link to="/dashboard">Área do cliente</Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {(
+              [
+                { id: "chat" as const, label: "Chat", icon: MessageSquare },
+                { id: "pdf" as const, label: "PDF", icon: FileText },
+                { id: "cv" as const, label: "Currículo", icon: UserRound },
+              ] as const
+            ).map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={cn(
+                  "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold transition",
+                  tab === id
+                    ? "bg-navy text-paper"
+                    : "border border-line bg-white text-ink hover:border-brass/40",
+                )}
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+            <Button asChild variant="cream" className="h-9 rounded-full text-xs">
+              <Link to="/dashboard">Área do cliente</Link>
+            </Button>
+          </div>
         </div>
+      </div>
 
-        <div className="mt-6 flex flex-wrap gap-2">
-          {(
-            [
-              { id: "chat" as const, label: "Chat", icon: MessageSquare },
-              { id: "pdf" as const, label: "Chat PDF", icon: FileText },
-              { id: "cv" as const, label: "Currículo", icon: UserRound },
-            ] as const
-          ).map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={cn(
-                "inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold transition",
-                tab === id ? "bg-navy text-paper" : "bg-white text-ink border border-line hover:border-brass/40",
-              )}
-            >
-              <Icon size={16} />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-6">
-          {tab === "chat" && <ChatPanel />}
-          {tab === "pdf" && <PdfPanel />}
-          {tab === "cv" && <CvPanel />}
-        </div>
+      {/* Conteúdo */}
+      <div className="mx-auto flex w-full max-w-[920px] flex-1 flex-col px-0 sm:px-4">
+        {tab === "chat" && <ChatPanel />}
+        {tab === "pdf" && (
+          <div className="flex-1 overflow-y-auto px-4 py-6">
+            <PdfPanel />
+          </div>
+        )}
+        {tab === "cv" && (
+          <div className="flex-1 overflow-y-auto px-4 py-6">
+            <CvPanel />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -76,9 +99,15 @@ function ChatPanel() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  async function send(e: FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, busy]);
+
+  async function send(e?: FormEvent) {
+    e?.preventDefault();
     const text = input.trim();
     if (!text || busy) return;
     const next = [...messages, { role: "user" as const, content: text }];
@@ -93,56 +122,154 @@ function ChatPanel() {
       setErr(ex instanceof Error ? ex.message : "Erro");
     } finally {
       setBusy(false);
+      textareaRef.current?.focus();
+    }
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void send();
     }
   }
 
   return (
-    <div className="rounded-2xl border border-line bg-white shadow-sm">
-      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
-        <Sparkles size={16} className="text-brass" />
-        <p className="text-sm font-semibold">Assistente DMM</p>
-      </div>
-      <div className="flex max-h-[420px] min-h-[280px] flex-col gap-3 overflow-y-auto p-4">
-        {messages.length === 0 && (
-          <p className="text-sm text-fog">
-            Pergunte sobre serviços da DMM, estrutura de trabalhos académicos, formatação, ou peça ideias
-            para o seu pedido.
-          </p>
-        )}
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={cn(
-              "max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
-              m.role === "user" ? "ml-auto bg-navy text-paper" : "bg-[#f6f7fb] text-ink",
-            )}
-          >
-            <span className="whitespace-pre-wrap">{m.content}</span>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Lista de mensagens */}
+      <div className="flex-1 overflow-y-auto px-4 py-6">
+        {messages.length === 0 && !busy && (
+          <div className="mx-auto flex max-w-[640px] flex-col items-center px-4 py-16 text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-navy text-brass shadow-md">
+              <Bot size={28} />
+            </div>
+            <h2 className="mt-5 font-display text-2xl font-bold">Como posso ajudar?</h2>
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-fog">
+              Pergunte sobre serviços da DMM, estrutura de trabalhos académicos, formatação ou ideias para o
+              seu pedido.
+            </p>
+            <div className="mt-8 grid w-full gap-2 sm:grid-cols-2">
+              {[
+                "Que serviços a DMM oferece?",
+                "Como estruturar uma monografia?",
+                "O que é formatação APA?",
+                "Como encomendar um trabalho?",
+              ].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    setInput(s);
+                    textareaRef.current?.focus();
+                  }}
+                  className="rounded-xl border border-line bg-white px-4 py-3 text-left text-sm text-ink shadow-sm transition hover:border-brass/50 hover:shadow"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
-        ))}
+        )}
+
+        <div className="mx-auto flex max-w-[720px] flex-col gap-5">
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={cn("flex gap-3", m.role === "user" ? "flex-row-reverse" : "flex-row")}
+            >
+              <div
+                className={cn(
+                  "grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm",
+                  m.role === "user" ? "bg-navy text-brass" : "bg-brass/20 text-navy",
+                )}
+              >
+                {m.role === "user" ? <User size={16} /> : <Bot size={16} />}
+              </div>
+              <div
+                className={cn(
+                  "max-w-[min(100%,520px)] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm",
+                  m.role === "user"
+                    ? "rounded-tr-md bg-navy text-paper"
+                    : "rounded-tl-md border border-line bg-white text-ink",
+                )}
+              >
+                <p className="whitespace-pre-wrap break-words">{m.content}</p>
+              </div>
+            </div>
+          ))}
+
+          {busy && (
+            <div className="flex gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brass/20 text-navy">
+                <Bot size={16} />
+              </div>
+              <div className="rounded-2xl rounded-tl-md border border-line bg-white px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:0ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:150ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:300ms]" />
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
       </div>
-      {err && <p className="px-4 pb-2 text-sm text-bad">{err}</p>}
-      <form onSubmit={send} className="flex gap-2 border-t border-line p-3">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Escreva a sua pergunta…"
-          disabled={busy}
-        />
-        <Button type="submit" disabled={busy} className="h-11 shrink-0 rounded-full px-5">
-          {busy ? "…" : "Enviar"}
-        </Button>
-      </form>
+
+      {/* Erro */}
+      {err && (
+        <div className="mx-auto w-full max-w-[720px] px-4">
+          <p className="mb-2 rounded-xl bg-bad/10 px-4 py-2 text-sm text-bad">{err}</p>
+        </div>
+      )}
+
+      {/* Caixa de escrita em baixo */}
+      <div className="sticky bottom-0 border-t border-line bg-[#f4f5f8]/90 px-4 py-3 backdrop-blur-md">
+        <form
+          onSubmit={send}
+          className="mx-auto flex max-w-[720px] items-end gap-2 rounded-2xl border border-line bg-white p-2 shadow-md"
+        >
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="Escreva a sua mensagem…"
+            disabled={busy}
+            className="max-h-36 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-mist"
+          />
+          <button
+            type="submit"
+            disabled={busy || !input.trim()}
+            className={cn(
+              "grid h-10 w-10 shrink-0 place-items-center rounded-full transition",
+              input.trim() && !busy
+                ? "bg-navy text-brass hover:bg-navy/90"
+                : "bg-line text-mist cursor-not-allowed",
+            )}
+            aria-label="Enviar"
+          >
+            <ArrowUp size={18} strokeWidth={2.5} />
+          </button>
+        </form>
+        <p className="mx-auto mt-2 max-w-[720px] text-center text-[11px] text-fog">
+          Enter para enviar · Shift+Enter para nova linha · A IA pode cometer erros
+        </p>
+      </div>
     </div>
   );
 }
 
 async function extractPdfTextInBrowser(file: File): Promise<string> {
   const data = new Uint8Array(await file.arrayBuffer());
-  // pdf.js via CDN — funciona no browser sem dependência no servidor Vercel
   const pdfjs = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/+esm");
   const lib = pdfjs as {
-    getDocument: (opts: { data: Uint8Array }) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: { str?: string }[] }> }> }> };
+    getDocument: (opts: { data: Uint8Array }) => {
+      promise: Promise<{
+        numPages: number;
+        getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: { str?: string }[] }> }>;
+      }>;
+    };
     GlobalWorkerOptions: { workerSrc: string };
   };
   lib.GlobalWorkerOptions.workerSrc =
@@ -165,7 +292,6 @@ function PdfPanel() {
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
 
   async function ask(e: FormEvent) {
     e.preventDefault();
@@ -197,17 +323,15 @@ function PdfPanel() {
   }
 
   return (
-    <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
+    <div className="mx-auto max-w-[640px] rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
       <h2 className="font-display text-xl font-bold">Chat com PDF</h2>
       <p className="mt-1 text-sm text-fog">
-        Envie um PDF com texto (não só imagens) e faça perguntas sobre o conteúdo — resumos, explicações,
-        secções do trabalho.
+        Envie um PDF com texto seleccionável e faça perguntas sobre o conteúdo.
       </p>
       <form onSubmit={ask} className="mt-4 space-y-3">
         <div>
-          <label className="text-xs font-semibold text-fog">Ficheiro PDF (máx. ~8 MB)</label>
+          <label className="text-xs font-semibold text-fog">Ficheiro PDF</label>
           <input
-            ref={inputRef}
             type="file"
             accept="application/pdf,.pdf"
             className="mt-1 block w-full text-sm"
@@ -221,7 +345,7 @@ function PdfPanel() {
             className="mt-1"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Ex: Resume as ideias principais do capítulo 2."
+            placeholder="Ex: Resume as ideias principais."
           />
         </div>
         <Button type="submit" disabled={busy || !file} className="h-11 rounded-full">
@@ -230,7 +354,7 @@ function PdfPanel() {
       </form>
       {err && <p className="mt-3 text-sm text-bad">{err}</p>}
       {reply && (
-        <div className="mt-4 rounded-xl bg-[#f6f7fb] p-4 text-sm leading-relaxed whitespace-pre-wrap">
+        <div className="mt-4 rounded-xl border border-line bg-[#f6f7fb] p-4 text-sm leading-relaxed whitespace-pre-wrap">
           {reply}
         </div>
       )}
@@ -283,17 +407,11 @@ function CvPanel() {
     }
   }
 
-  function printCv() {
-    window.print();
-  }
-
   return (
-    <div className="space-y-6">
-      <form onSubmit={generate} className="rounded-2xl border border-line bg-white p-5 shadow-sm">
+    <div className="mx-auto max-w-[640px] space-y-6">
+      <form onSubmit={generate} className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
         <h2 className="font-display text-xl font-bold">Currículo personalizado</h2>
-        <p className="mt-1 text-sm text-fog">
-          Preencha os dados. A IA organiza o texto profissionalmente. Pode adicionar uma foto.
-        </p>
+        <p className="mt-1 text-sm text-fog">Preencha os dados. A IA organiza o texto profissionalmente.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className="text-xs font-semibold text-fog">Nome completo</label>
@@ -330,12 +448,7 @@ function CvPanel() {
           </div>
           <div className="sm:col-span-2">
             <label className="text-xs font-semibold text-fog">Experiência</label>
-            <Textarea
-              className="mt-1"
-              value={experience}
-              onChange={(e) => setExperience(e.target.value)}
-              placeholder="Empresa, cargo, datas, responsabilidades…"
-            />
+            <Textarea className="mt-1" value={experience} onChange={(e) => setExperience(e.target.value)} />
           </div>
           <div className="sm:col-span-2">
             <label className="text-xs font-semibold text-fog">Formação</label>
@@ -343,7 +456,7 @@ function CvPanel() {
           </div>
           <div className="sm:col-span-2">
             <label className="text-xs font-semibold text-fog">Competências</label>
-            <Input className="mt-1" value={skills} onChange={(e) => setSkills(e.target.value)} placeholder="Ex: Excel, Word, atendimento…" />
+            <Input className="mt-1" value={skills} onChange={(e) => setSkills(e.target.value)} />
           </div>
         </div>
         {err && <p className="mt-3 text-sm text-bad">{err}</p>}
@@ -357,17 +470,17 @@ function CvPanel() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex gap-4">
               {photo && (
-                <img src={photo} alt="" className="h-24 w-24 rounded-xl object-cover print:h-28 print:w-28" />
+                <img src={photo} alt="" className="h-24 w-24 rounded-xl object-cover" />
               )}
               <div>
                 <h2 className="font-display text-2xl font-bold">{result.fullName}</h2>
-                {result.targetRole && <p className="text-brass font-semibold">{result.targetRole}</p>}
+                {result.targetRole && <p className="font-semibold text-brass">{result.targetRole}</p>}
                 <p className="mt-1 text-sm text-fog">
                   {[result.email, result.phone, result.city].filter(Boolean).join(" · ")}
                 </p>
               </div>
             </div>
-            <Button type="button" variant="cream" className="h-10 rounded-full print:hidden" onClick={printCv}>
+            <Button type="button" variant="cream" className="h-10 rounded-full print:hidden" onClick={() => window.print()}>
               Imprimir / PDF
             </Button>
           </div>
