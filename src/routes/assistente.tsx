@@ -186,10 +186,10 @@ function ChatPanel() {
               </div>
               <div
                 className={cn(
-                  "max-w-[min(100%,520px)] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm",
+                  "max-w-[min(100%,560px)] rounded-2xl px-4 py-3.5 text-[15px] leading-[1.65] shadow-sm",
                   m.role === "user"
                     ? "rounded-tr-md bg-navy text-paper"
-                    : "rounded-tl-md border border-line bg-white text-ink",
+                    : "rounded-tl-md bg-white text-ink ring-1 ring-black/[0.06]",
                 )}
               >
                 <p className="whitespace-pre-wrap break-words">{m.content}</p>
