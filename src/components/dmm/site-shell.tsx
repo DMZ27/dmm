@@ -232,11 +232,13 @@ export function Footer() {
 }
 
 export function SiteShell({ children }: { children: ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const hideFooter = pathname === "/assistente" || pathname.startsWith("/assistente/");
   return (
     <div className="min-h-screen bg-paper text-ink">
       <Header />
-      <main>{children}</main>
-      <Footer />
+      <main className={hideFooter ? "pb-0" : undefined}>{children}</main>
+      {!hideFooter && <Footer />}
     </div>
   );
 }
