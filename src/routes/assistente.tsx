@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   ArrowUp,
   Bot,
@@ -95,13 +94,8 @@ function ChatPanel() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [mounted, setMounted] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     const el = listRef.current;
@@ -111,12 +105,14 @@ function ChatPanel() {
     });
   }, [messages, busy, err]);
 
-  // Impede o body de fazer scroll enquanto o chat está aberto
   useEffect(() => {
-    const prev = document.body.style.overflow;
+    const prevOverflow = document.body.style.overflow;
+    const prevTouch = document.body.style.touchAction;
     document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouch;
     };
   }, []);
 
@@ -147,142 +143,148 @@ function ChatPanel() {
     }
   }
 
-  const composer = (
+  return (
     <div
-      className="fixed left-0 right-0 z-[200] border-t border-line bg-[#f4f5f8] px-3 pt-2 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] sm:px-4"
+      className="fixed left-0 right-0 z-40 flex flex-col bg-[#f4f5f8]"
       style={{
+        top: "3.75rem",
         bottom: 0,
-        paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+        height: "auto",
       }}
     >
-      <div className="mx-auto w-full max-w-[720px]">
-        {err && (
-          <p className="mb-2 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{err}</p>
-        )}
-        <form
-          onSubmit={send}
-          className="flex items-end gap-2 rounded-2xl border border-line bg-white p-2 shadow-md"
-        >
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Escreva a sua mensagem…"
-            disabled={busy}
-            className="max-h-28 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[16px] text-ink outline-none placeholder:text-mist"
-          />
-          <button
-            type="submit"
-            disabled={busy || !input.trim()}
-            className={cn(
-              "grid h-11 w-11 shrink-0 place-items-center rounded-full transition",
-              input.trim() && !busy
-                ? "bg-navy text-brass hover:bg-navy/90"
-                : "cursor-not-allowed bg-line text-mist",
-            )}
-            aria-label="Enviar"
-          >
-            <ArrowUp size={18} strokeWidth={2.5} />
-          </button>
-        </form>
-        <p className="mt-1 text-center text-[10px] text-fog sm:text-[11px]">
-          Enter enviar · Shift+Enter nova linha
-        </p>
-      </div>
-    </div>
-  );
-
-  return (
-    <>
+      {/* ÚNICA zona com scroll — touch no mobile */}
       <div
         ref={listRef}
-        className="overflow-y-auto overscroll-contain px-3 sm:px-4"
+        className="min-h-0 flex-1 px-3 sm:px-4"
         style={{
-          height: "calc(100dvh - 4.5rem)",
-          paddingBottom: "7rem",
+          overflowY: "auto",
+          overflowX: "hidden",
           WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "contain",
+          touchAction: "pan-y",
         }}
       >
-        {messages.length === 0 && !busy && (
-          <div className="mx-auto flex max-w-[640px] flex-col items-center px-2 py-8 text-center">
-            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-navy text-brass shadow-md">
-              <Bot size={28} />
-            </div>
-            <h2 className="mt-4 font-display text-xl font-bold sm:text-2xl">Como posso ajudar?</h2>
-            <p className="mt-2 max-w-md text-sm leading-relaxed text-fog">
-              Pergunte sobre serviços da DMM, trabalhos académicos ou o seu pedido.
-            </p>
-            <div className="mt-6 grid w-full gap-2 sm:grid-cols-2">
-              {[
-                "Que serviços a DMM oferece?",
-                "Como estruturar uma monografia?",
-                "O que é formatação APA?",
-                "Como encomendar um trabalho?",
-              ].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => {
-                    setInput(s);
-                    textareaRef.current?.focus();
-                  }}
-                  className="rounded-xl border border-line bg-white px-3 py-3 text-left text-sm text-ink shadow-sm"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="mx-auto flex max-w-[720px] flex-col gap-4 pb-4">
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              className={cn("flex gap-2 sm:gap-3", m.role === "user" ? "flex-row-reverse" : "flex-row")}
-            >
-              <div
-                className={cn(
-                  "grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm sm:h-9 sm:w-9",
-                  m.role === "user" ? "bg-navy text-brass" : "bg-brass/20 text-navy",
-                )}
-              >
-                {m.role === "user" ? <User size={15} /> : <Bot size={15} />}
+        <div className="mx-auto max-w-[720px] py-4">
+          {messages.length === 0 && !busy && (
+            <div className="flex flex-col items-center px-2 py-8 text-center">
+              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-navy text-brass shadow-md">
+                <Bot size={28} />
               </div>
-              <div
-                className={cn(
-                  "max-w-[min(100%,520px)] rounded-2xl px-3.5 py-3 text-[15px] leading-[1.6] shadow-sm",
-                  m.role === "user"
-                    ? "rounded-tr-md bg-navy text-paper"
-                    : "rounded-tl-md bg-white text-ink ring-1 ring-black/[0.06]",
-                )}
-              >
-                <p className="whitespace-pre-wrap break-words">{m.content}</p>
-              </div>
-            </div>
-          ))}
-
-          {busy && (
-            <div className="flex gap-2 sm:gap-3">
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brass/20 text-navy sm:h-9 sm:w-9">
-                <Bot size={15} />
-              </div>
-              <div className="rounded-2xl rounded-tl-md bg-white px-4 py-3 shadow-sm ring-1 ring-black/[0.06]">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:0ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:150ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:300ms]" />
-                </div>
+              <h2 className="mt-4 font-display text-xl font-bold sm:text-2xl">Como posso ajudar?</h2>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-fog">
+                Pergunte sobre serviços da DMM, trabalhos académicos ou o seu pedido.
+              </p>
+              <div className="mt-6 grid w-full gap-2 sm:grid-cols-2">
+                {[
+                  "Que serviços a DMM oferece?",
+                  "Como estruturar uma monografia?",
+                  "O que é formatação APA?",
+                  "Como encomendar um trabalho?",
+                ].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setInput(s);
+                      textareaRef.current?.focus();
+                    }}
+                    className="rounded-xl border border-line bg-white px-3 py-3 text-left text-sm text-ink shadow-sm"
+                  >
+                    {s}
+                  </button>
+                ))}
               </div>
             </div>
           )}
+
+          <div className="flex flex-col gap-4 pb-2">
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                className={cn("flex gap-2 sm:gap-3", m.role === "user" ? "flex-row-reverse" : "flex-row")}
+              >
+                <div
+                  className={cn(
+                    "grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm sm:h-9 sm:w-9",
+                    m.role === "user" ? "bg-navy text-brass" : "bg-brass/20 text-navy",
+                  )}
+                >
+                  {m.role === "user" ? <User size={15} /> : <Bot size={15} />}
+                </div>
+                <div
+                  className={cn(
+                    "max-w-[min(100%,520px)] rounded-2xl px-3.5 py-3 text-[15px] leading-[1.6] shadow-sm",
+                    m.role === "user"
+                      ? "rounded-tr-md bg-navy text-paper"
+                      : "rounded-tl-md bg-white text-ink ring-1 ring-black/[0.06]",
+                  )}
+                >
+                  <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                </div>
+              </div>
+            ))}
+
+            {busy && (
+              <div className="flex gap-2 sm:gap-3">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brass/20 text-navy sm:h-9 sm:w-9">
+                  <Bot size={15} />
+                </div>
+                <div className="rounded-2xl rounded-tl-md bg-white px-4 py-3 shadow-sm ring-1 ring-black/[0.06]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:0ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:150ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:300ms]" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {mounted ? createPortal(composer, document.body) : composer}
-    </>
+      {/* Barra sempre em baixo, dentro do mesmo painel fixo */}
+      <div
+        className="shrink-0 border-t border-line bg-[#f4f5f8] px-3 pt-2 sm:px-4"
+        style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
+      >
+        <div className="mx-auto w-full max-w-[720px]">
+          {err && (
+            <p className="mb-2 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{err}</p>
+          )}
+          <form
+            onSubmit={send}
+            className="flex items-end gap-2 rounded-2xl border border-line bg-white p-2 shadow-md"
+          >
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Escreva a sua mensagem…"
+              disabled={busy}
+              className="max-h-28 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[16px] text-ink outline-none placeholder:text-mist"
+            />
+            <button
+              type="submit"
+              disabled={busy || !input.trim()}
+              className={cn(
+                "grid h-11 w-11 shrink-0 place-items-center rounded-full transition",
+                input.trim() && !busy
+                  ? "bg-navy text-brass hover:bg-navy/90"
+                  : "cursor-not-allowed bg-line text-mist",
+              )}
+              aria-label="Enviar"
+            >
+              <ArrowUp size={18} strokeWidth={2.5} />
+            </button>
+          </form>
+          <p className="mt-1 text-center text-[10px] text-fog sm:text-[11px]">
+            Enter enviar · Shift+Enter nova linha
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
