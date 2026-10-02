@@ -3,7 +3,7 @@ import { FormEvent, useRef, useState } from "react";
 import { FileText, MessageSquare, Sparkles, UserRound } from "lucide-react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { aiChat, aiChatPdfFile, aiGenerateCv } from "@/lib/dmm/ai";
+import { aiChat, aiChatPdf, aiGenerateCv } from "@/lib/dmm/ai";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -137,6 +137,28 @@ function ChatPanel() {
   );
 }
 
+async function extractPdfTextInBrowser(file: File): Promise<string> {
+  const data = new Uint8Array(await file.arrayBuffer());
+  // pdf.js via CDN — funciona no browser sem dependência no servidor Vercel
+  const pdfjs = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/+esm");
+  const lib = pdfjs as {
+    getDocument: (opts: { data: Uint8Array }) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: { str?: string }[] }> }> }> };
+    GlobalWorkerOptions: { workerSrc: string };
+  };
+  lib.GlobalWorkerOptions.workerSrc =
+    "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+  const doc = await lib.getDocument({ data }).promise;
+  const parts: string[] = [];
+  const maxPages = Math.min(doc.numPages, 40);
+  for (let i = 1; i <= maxPages; i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    const line = content.items.map((it) => it.str || "").join(" ");
+    if (line.trim()) parts.push(line);
+  }
+  return parts.join("\n").replace(/\s+/g, " ").trim();
+}
+
 function PdfPanel() {
   const [file, setFile] = useState<File | null>(null);
   const [question, setQuestion] = useState("");
@@ -152,16 +174,19 @@ function PdfPanel() {
     setErr("");
     setReply("");
     try {
-      const buf = await file.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      let binary = "";
-      const chunk = 0x8000;
-      for (let i = 0; i < bytes.length; i += chunk) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      if (file.size > 8_000_000) throw new Error("PDF demasiado grande (máx. 8 MB).");
+      const documentText = await extractPdfTextInBrowser(file);
+      if (documentText.length < 20) {
+        throw new Error(
+          "Não há texto legível neste PDF (pode ser só imagens/scanners). Use um PDF com texto seleccionável.",
+        );
       }
-      const fileBase64 = btoa(binary);
-      const res = await aiChatPdfFile({
-        data: { question: question.trim(), fileBase64, fileName: file.name },
+      const res = await aiChatPdf({
+        data: {
+          question: question.trim(),
+          documentText: documentText.slice(0, 24000),
+          documentName: file.name,
+        },
       });
       setReply(res.reply);
     } catch (ex) {
@@ -180,7 +205,7 @@ function PdfPanel() {
       </p>
       <form onSubmit={ask} className="mt-4 space-y-3">
         <div>
-          <label className="text-xs font-semibold text-fog">Ficheiro PDF (máx. ~4 MB)</label>
+          <label className="text-xs font-semibold text-fog">Ficheiro PDF (máx. ~8 MB)</label>
           <input
             ref={inputRef}
             type="file"
