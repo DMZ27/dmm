@@ -33,7 +33,7 @@ function AssistentePage() {
   if (!user) return <RedirectToSignIn />;
 
   return (
-    <div className="flex min-h-[calc(100vh-70px)] flex-col bg-[#f4f5f8]">
+    <div className="flex h-[calc(100vh-70px)] flex-col overflow-hidden bg-[#f4f5f8]">
       {/* Barra superior */}
       <div className="border-b border-line bg-white">
         <div className="mx-auto flex w-full max-w-[920px] flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -77,7 +77,7 @@ function AssistentePage() {
       </div>
 
       {/* Conteúdo */}
-      <div className="mx-auto flex w-full max-w-[920px] flex-1 flex-col px-0 sm:px-4">
+      <div className="mx-auto flex w-full max-w-[920px] min-h-0 flex-1 flex-col overflow-hidden px-0 sm:px-4">
         {tab === "chat" && <ChatPanel />}
         {tab === "pdf" && (
           <div className="flex-1 overflow-y-auto px-4 py-6">
@@ -99,12 +99,16 @@ function ChatPanel() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Só a lista de mensagens faz scroll — a barra de baixo não se mexe
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, busy]);
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages, busy, err]);
 
   async function send(e?: FormEvent) {
     e?.preventDefault();
@@ -134,11 +138,11 @@ function ChatPanel() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* Lista de mensagens */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+    <div className="flex h-[calc(100vh-130px)] min-h-[420px] flex-col overflow-hidden">
+      {/* Só esta zona faz scroll */}
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5">
         {messages.length === 0 && !busy && (
-          <div className="mx-auto flex max-w-[640px] flex-col items-center px-4 py-16 text-center">
+          <div className="mx-auto flex max-w-[640px] flex-col items-center px-4 py-12 text-center">
             <div className="grid h-14 w-14 place-items-center rounded-2xl bg-navy text-brass shadow-md">
               <Bot size={28} />
             </div>
@@ -202,7 +206,7 @@ function ChatPanel() {
               <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brass/20 text-navy">
                 <Bot size={16} />
               </div>
-              <div className="rounded-2xl rounded-tl-md border border-line bg-white px-4 py-3 shadow-sm">
+              <div className="rounded-2xl rounded-tl-md bg-white px-4 py-3 shadow-sm ring-1 ring-black/[0.06]">
                 <div className="flex items-center gap-1.5">
                   <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:0ms]" />
                   <span className="h-2 w-2 animate-bounce rounded-full bg-fog [animation-delay:150ms]" />
@@ -211,19 +215,15 @@ function ChatPanel() {
               </div>
             </div>
           )}
-          <div ref={bottomRef} />
+          <div ref={bottomRef} className="h-1 shrink-0" />
         </div>
       </div>
 
-      {/* Erro */}
-      {err && (
-        <div className="mx-auto w-full max-w-[720px] px-4">
-          <p className="mb-2 rounded-xl bg-bad/10 px-4 py-2 text-sm text-bad">{err}</p>
-        </div>
-      )}
-
-      {/* Caixa de escrita em baixo */}
-      <div className="sticky bottom-0 border-t border-line bg-[#f4f5f8]/90 px-4 py-3 backdrop-blur-md">
+      {/* Barra fixa — não sobe com o scroll */}
+      <div className="shrink-0 border-t border-line bg-[#f4f5f8] px-4 py-3">
+        {err && (
+          <p className="mx-auto mb-2 max-w-[720px] rounded-xl bg-bad/10 px-4 py-2 text-sm text-bad">{err}</p>
+        )}
         <form
           onSubmit={send}
           className="mx-auto flex max-w-[720px] items-end gap-2 rounded-2xl border border-line bg-white p-2 shadow-md"
@@ -245,7 +245,7 @@ function ChatPanel() {
               "grid h-10 w-10 shrink-0 place-items-center rounded-full transition",
               input.trim() && !busy
                 ? "bg-navy text-brass hover:bg-navy/90"
-                : "bg-line text-mist cursor-not-allowed",
+                : "cursor-not-allowed bg-line text-mist",
             )}
             aria-label="Enviar"
           >
@@ -253,7 +253,7 @@ function ChatPanel() {
           </button>
         </form>
         <p className="mx-auto mt-2 max-w-[720px] text-center text-[11px] text-fog">
-          Enter para enviar · Shift+Enter para nova linha · A IA pode cometer erros
+          Enter para enviar · Shift+Enter para nova linha
         </p>
       </div>
     </div>
