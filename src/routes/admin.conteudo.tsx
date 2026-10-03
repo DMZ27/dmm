@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { resolveHighlightCover } from "@/lib/dmm/video-thumb";
 
 export const Route = createFileRoute("/admin/conteudo")({ component: AdminConteudo });
 
@@ -155,7 +156,7 @@ function AdminConteudo() {
           <h2 className="font-display text-xl font-bold">Novo destaque / publicidade</h2>
           <p className="mt-1 text-sm text-fog">
             Aparece na página inicial. No campo link coloque o URL do vídeo (YouTube, TikTok, etc.).
-            A imagem deve ser um link directo (https://…).
+            Podes pôr uma imagem tua (https://…) ou deixar vazio: com link YouTube a capa gera-se sozinha.
           </p>
           <form onSubmit={saveHighlight} className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
@@ -167,13 +168,26 @@ function AdminConteudo() {
               <Input className="mt-1" value={hSub} onChange={(e) => setHSub(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs font-semibold text-fog">URL da imagem</label>
-              <Input className="mt-1" placeholder="https://..." value={hImg} onChange={(e) => setHImg(e.target.value)} />
+              <label className="text-xs font-semibold text-fog">URL da imagem (opcional)</label>
+              <Input className="mt-1" placeholder="https://… (deixa vazio para capa automática do YouTube)" value={hImg} onChange={(e) => setHImg(e.target.value)} />
+              <p className="mt-1 text-[11px] text-fog">
+                Se preencheres, esta imagem tem prioridade. Se ficares vazio e o link for YouTube, a capa do vídeo é usada automaticamente.
+              </p>
             </div>
             <div>
               <label className="text-xs font-semibold text-fog">URL do vídeo / link</label>
-              <Input className="mt-1" placeholder="https://youtube.com/..." value={hLink} onChange={(e) => setHLink(e.target.value)} />
+              <Input className="mt-1" placeholder="https://youtube.com/watch?v=… ou youtu.be/…" value={hLink} onChange={(e) => setHLink(e.target.value)} />
             </div>
+            {resolveHighlightCover(hImg, hLink) && (
+              <div className="sm:col-span-2">
+                <p className="text-xs font-semibold text-fog">Pré-visualização da capa</p>
+                <img
+                  src={resolveHighlightCover(hImg, hLink) || ""}
+                  alt=""
+                  className="mt-2 aspect-[16/10] max-w-xs rounded-xl object-cover ring-1 ring-line"
+                />
+              </div>
+            )}
             <div>
               <label className="text-xs font-semibold text-fog">Texto do botão</label>
               <Input className="mt-1" value={hLabel} onChange={(e) => setHLabel(e.target.value)} />
@@ -187,14 +201,26 @@ function AdminConteudo() {
 
           <h3 className="mt-8 text-sm font-bold text-ink">Destaques activos</h3>
           <ul className="mt-3 space-y-2">
-            {(highlights ?? []).map((h) => (
+            {(highlights ?? []).map((h) => {
+              const thumb = resolveHighlightCover(h.image_url, h.link_url);
+              return (
               <li
                 key={h.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line px-3 py-3"
               >
-                <div className="min-w-0">
-                  <p className="font-semibold">{h.title}</p>
-                  <p className="truncate text-xs text-fog">{h.link_url || "Sem link"}</p>
+                <div className="flex min-w-0 items-center gap-3">
+                  {thumb ? (
+                    <img src={thumb} alt="" className="h-12 w-16 shrink-0 rounded-lg object-cover" />
+                  ) : (
+                    <div className="grid h-12 w-16 shrink-0 place-items-center rounded-lg bg-cream text-[10px] text-fog">sem capa</div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-semibold">{h.title}</p>
+                    <p className="truncate text-xs text-fog">{h.link_url || "Sem link"}</p>
+                    {!h.image_url && thumb && (
+                      <p className="text-[10px] text-brass">Capa automática (YouTube)</p>
+                    )}
+                  </div>
                 </div>
                 <Button
                   type="button"
@@ -207,7 +233,7 @@ function AdminConteudo() {
                   Remover
                 </Button>
               </li>
-            ))}
+            );})}
             {highlights?.length === 0 && <p className="text-sm text-fog">Ainda não há destaques.</p>}
           </ul>
         </section>

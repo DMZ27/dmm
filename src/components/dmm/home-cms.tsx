@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ExternalLink, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { listArticlesPublic, listHighlightsPublic, type Article, type Highlight } from "@/lib/dmm/cms";
+import { resolveHighlightCover } from "@/lib/dmm/video-thumb";
 
 /** Secções de destaques (publicidade) e mini-blog na homepage */
 export function HomeCmsSections() {
@@ -27,11 +28,12 @@ export function HomeCmsSections() {
             <h2 className="mt-2 font-display text-3xl font-bold">Novidades e conteúdos</h2>
             <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {highlights.map((h) => {
+                const cover = resolveHighlightCover(h.image_url, h.link_url);
                 const card = (
                   <div className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:border-brass/40">
                     <div className="relative aspect-[16/10] bg-navy-2">
-                      {h.image_url ? (
-                        <img src={h.image_url} alt="" className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100" />
+                      {cover ? (
+                        <img src={cover} alt="" className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100" />
                       ) : (
                         <div className="grid h-full place-items-center text-brass">
                           <Play size={40} />
