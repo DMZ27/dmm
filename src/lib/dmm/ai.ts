@@ -1,13 +1,50 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { chatLLM, type ChatMessage } from "@/lib/ai/llm";
+import { listServices } from "@/lib/dmm/server";
+import { CATEGORIES } from "@/lib/dmm/catalog";
 
-const SYSTEM_ASSISTANT = `És o assistente oficial da DMM (Central de Serviços em Benguela, Angola).
+/** Constrói o texto com a lista real de serviços para injectar no system prompt */
+async function buildServicesContext(): Promise<string> {
+  try {
+    const services = await listServices();
+    if (!services || services.length === 0) {
+      return "Lista de serviços temporariamente indisponível.";
+    }
+
+    // Agrupar por categoria
+    const byCat: Record<string, typeof services> = {};
+    for (const s of services) {
+      if (!byCat[s.category]) byCat[s.category] = [];
+      byCat[s.category].push(s);
+    }
+
+    let text = "SERVIÇOS REAIS DA DMM (usa sempre estes nomes e descrições):\n\n";
+
+    for (const cat of CATEGORIES) {
+      const list = byCat[cat.id];
+      if (!list || list.length === 0) continue;
+
+      text += `${cat.name.toUpperCase()}:\n`;
+      for (const s of list) {
+        text += `- ${s.name}: ${s.description}\n  Detalhes: ${s.details}\n`;
+      }
+      text += "\n";
+    }
+
+    return text.trim();
+  } catch {
+    return "Não foi possível carregar a lista de serviços neste momento.";
+  }
+}
+
+const SYSTEM_ASSISTANT_BASE = `És o assistente oficial da DMM (Central de Serviços em Benguela, Angola).
 
 Missão:
-- esclarecer serviços da DMM (trabalhos académicos, design, informática);
+- esclarecer os serviços reais da DMM (usa sempre a lista fornecida abaixo);
 - apoio académico ético (estrutura, formatação APA/ABNT, método) — nunca entregues trabalhos completos para o aluno apresentar como seus;
-- orientação para currículos e apresentação profissional.
+- orientação para currículos e apresentação profissional;
+- quando o cliente perguntar "que serviços têm?", responde com base na lista real.
 
 Estilo de resposta (obrigatório):
 - Português de Angola/Portugal, tom moderno, claro e profissional.
@@ -17,7 +54,8 @@ Estilo de resposta (obrigatório):
 - NÃO uses markdown pesado (títulos com #, blocos de código) salvo se o utilizador pedir código.
 - Quando comparares opções, escreve em texto corrido ou lista simples, sem grelhas ASCII.
 - Se precisares de destacar um ponto, usa uma frase directa — não um banner de símbolos.
-- Se não souberes algo da DMM, indica o WhatsApp 923 078 760.`;
+- Se não souberes algo da DMM, indica o WhatsApp 923 078 760.
+`;
 
 const SYSTEM_PDF = `És um assistente que responde com base no texto de um documento PDF.
 
@@ -53,7 +91,15 @@ export const aiChat = createServerFn({ method: "POST" })
       content: String(m.content || "").slice(0, 8000),
     }));
     if (!history.length) throw new Error("Escreva uma mensagem.");
-    const messages: ChatMessage[] = [{ role: "system", content: SYSTEM_ASSISTANT }, ...history];
+
+    // Carrega a lista real de serviços e injecta no system prompt
+    const servicesContext = await buildServicesContext();
+    const systemPrompt = `${SYSTEM_ASSISTANT_BASE}\n\n${servicesContext}`;
+
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      ...history,
+    ];
     const reply = await chatLLM(messages);
     return { reply };
   });
@@ -118,11 +164,11 @@ export const aiGenerateCv = createServerFn({ method: "POST" })
       { role: "system", content: SYSTEM_CV },
       {
         role: "user",
-        content: `Gera o conteúdo do currículo em JSON com chaves: summary (string), experience (string com bullets separados por \\n), education (string), skills (string). Dados:\n${JSON.stringify(payload, null, 2)}`,
+        content: `Dados do candidato:\n${JSON.stringify(payload, null, 2)}\n\nGera o currículo em JSON com as chaves: summary, experience, education, skills.`,
       },
     ];
     const reply = await chatLLM(messages);
-    // try parse JSON from reply
+
     let summary = payload.summary;
     let experience = payload.experience;
     let education = payload.education;
