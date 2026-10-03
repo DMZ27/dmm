@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { chatLLM, type ChatMessage } from "@/lib/ai/llm";
-import { listServices, createOrder } from "@/lib/dmm/server";
+import { listServices, createOrder, listMyOrders } from "@/lib/dmm/server";
+import { STATUS_META, type OrderStatus } from "@/lib/dmm/status";
 import { CATEGORIES } from "@/lib/dmm/catalog";
 
 /** Constrói o texto com a lista real de serviços para injectar no system prompt */
@@ -37,14 +38,54 @@ async function buildServicesContext(): Promise<string> {
   }
 }
 
+/** Constrói resumo dos pedidos do utilizador logado (só os dele) */
+async function buildOrdersContext(): Promise<string> {
+  try {
+    const orders = await listMyOrders();
+    if (!orders || orders.length === 0) {
+      return "PEDIDOS DO CLIENTE: Ainda não tem nenhum pedido registado.";
+    }
+
+    // Limita aos 8 mais recentes para não explodir o prompt
+    const recent = orders.slice(0, 8);
+    let text = "PEDIDOS DESTE CLIENTE (só podes falar destes — nunca de outros clientes):\n\n";
+
+    for (const o of recent) {
+      const statusLabel =
+        STATUS_META[o.status as OrderStatus]?.label || o.status;
+      const deadline = o.deadline ? ` | Prazo: ${o.deadline}` : "";
+      const price = o.quoted_price ? ` | Orçamento: ${o.quoted_price}` : "";
+      text += `- Pedido #${o.code} | ${o.service_name} | "${o.title}" | Estado: ${statusLabel}${deadline}${price}\n`;
+    }
+
+    if (orders.length > 8) {
+      text += `\n(Existem mais ${orders.length - 8} pedidos antigos. Se precisar de um específico, peça o número.)\n`;
+    }
+
+    return text.trim();
+  } catch {
+    return "Não foi possível carregar os pedidos do cliente neste momento.";
+  }
+}
+
+
+
 const SYSTEM_ASSISTANT_BASE = `És o assistente oficial da DMM (Central de Serviços em Benguela, Angola).
 
 Missão:
 - esclarecer os serviços reais da DMM (usa sempre a lista fornecida abaixo);
 - ajudar o cliente a escolher o serviço certo através de perguntas guiadas;
 - recolher os dados necessários e criar a encomenda quando o cliente confirmar;
+- informar o cliente sobre o estado dos SEUS pedidos (usa só a lista de pedidos fornecida);
 - apoio académico ético (estrutura, formatação APA/ABNT, método) — nunca entregues trabalhos completos para o aluno apresentar como seus;
 - orientação para currículos e apresentação profissional.
+
+SOBRE OS PEDIDOS DO CLIENTE:
+- Só podes falar dos pedidos que aparecem na secção "PEDIDOS DESTE CLIENTE".
+- Nunca inventes números de pedido, estados ou preços.
+- Se o cliente perguntar "como está o meu pedido?" e tiver mais do que um, pergunta qual o número (#) ou mostra a lista resumida.
+- Se não tiver pedidos, diz isso claramente e oferece ajuda para criar um.
+- Nunca reveles informação de outros clientes.
 
 COMO AJUDAR A ESCOLHER (perguntas guiadas):
 Quando o cliente não souber exactamente o que precisa, ou disser coisas vagas como "preciso de ajuda", "quero um trabalho", "preciso de design", segue este fluxo:
@@ -119,8 +160,11 @@ export const aiChat = createServerFn({ method: "POST" })
     }));
     if (!history.length) throw new Error("Escreva uma mensagem.");
 
-    const servicesContext = await buildServicesContext();
-    const systemPrompt = `${SYSTEM_ASSISTANT_BASE}\n\n${servicesContext}`;
+    const [servicesContext, ordersContext] = await Promise.all([
+      buildServicesContext(),
+      buildOrdersContext(),
+    ]);
+    const systemPrompt = `${SYSTEM_ASSISTANT_BASE}\n\n${servicesContext}\n\n${ordersContext}`;
 
     const messages: ChatMessage[] = [
       { role: "system", content: systemPrompt },
