@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { chatLLM, type ChatMessage } from "@/lib/ai/llm";
-import { listServices } from "@/lib/dmm/server";
+import { listServices, createOrder } from "@/lib/dmm/server";
 import { CATEGORIES } from "@/lib/dmm/catalog";
 
 /** Constrói o texto com a lista real de serviços para injectar no system prompt */
@@ -12,14 +12,13 @@ async function buildServicesContext(): Promise<string> {
       return "Lista de serviços temporariamente indisponível.";
     }
 
-    // Agrupar por categoria
     const byCat: Record<string, typeof services> = {};
     for (const s of services) {
       if (!byCat[s.category]) byCat[s.category] = [];
       byCat[s.category].push(s);
     }
 
-    let text = "SERVIÇOS REAIS DA DMM (usa sempre estes nomes e descrições):\n\n";
+    let text = "SERVIÇOS REAIS DA DMM (usa sempre estes nomes e o id exacto):\n\n";
 
     for (const cat of CATEGORIES) {
       const list = byCat[cat.id];
@@ -27,7 +26,7 @@ async function buildServicesContext(): Promise<string> {
 
       text += `${cat.name.toUpperCase()}:\n`;
       for (const s of list) {
-        text += `- ${s.name}: ${s.description}\n  Detalhes: ${s.details}\n`;
+        text += `- id: "${s.id}" | ${s.name}: ${s.description}\n  Detalhes: ${s.details}\n`;
       }
       text += "\n";
     }
@@ -43,6 +42,7 @@ const SYSTEM_ASSISTANT_BASE = `És o assistente oficial da DMM (Central de Servi
 Missão:
 - esclarecer os serviços reais da DMM (usa sempre a lista fornecida abaixo);
 - ajudar o cliente a escolher o serviço certo através de perguntas guiadas;
+- recolher os dados necessários e criar a encomenda quando o cliente confirmar;
 - apoio académico ético (estrutura, formatação APA/ABNT, método) — nunca entregues trabalhos completos para o aluno apresentar como seus;
 - orientação para currículos e apresentação profissional.
 
@@ -53,22 +53,34 @@ Quando o cliente não souber exactamente o que precisa, ou disser coisas vagas c
 2. Pergunta o prazo aproximado (ex: "Tens uma data limite?").
 3. Pergunta o tipo de entrega que prefere (ficheiro digital, impressão, ou os dois).
 4. Com base nas respostas, recomenda 1 ou 2 serviços concretos da lista real e explica porquê em 2-3 frases.
-5. No final pergunta se quer que o ajudes a preparar a encomenda.
+5. Pergunta se quer que prepares a encomenda.
 
-Regras das perguntas:
-- Faz no máximo 1 ou 2 perguntas de cada vez (não faças interrogatório).
-- Usa linguagem natural e amigável.
-- Se o cliente já disser claramente o que quer, não forces o fluxo de perguntas — vai directo ao serviço.
-- Nunca inventes serviços que não estejam na lista.
+COMO CRIAR A ENCOMENDA:
+Quando o cliente confirmar que quer encomendar (ex: "sim", "pode criar", "quero encomendar", "vamos"), recolhe estes 3 dados:
+- serviceId (o id exacto da lista, ex: "monografias")
+- title (título curto do pedido, 5-80 caracteres)
+- description (descrição do que precisa, prazo, detalhes)
+
+Quando tiveres os 3 dados e o cliente confirmar, responde EXACTAMENTE neste formato (nada mais depois do bloco):
+
+---PEDIDO---
+{"serviceId":"ID_AQUI","title":"TÍTULO AQUI","description":"DESCRIÇÃO AQUI"}
+---FIM---
+
+Regras importantes:
+- Só usa o bloco ---PEDIDO--- quando tiveres os 3 campos e o cliente tiver confirmado.
+- Nunca inventes um serviceId que não exista na lista.
+- O title deve ser claro e curto.
+- A description deve incluir prazo e detalhes importantes que o cliente disse.
+- Antes de emitir o bloco, podes escrever uma frase curta tipo "Perfeito, vou criar o teu pedido agora."
 
 Estilo de resposta (obrigatório):
 - Português de Angola/Portugal, tom moderno, claro e profissional.
 - Frases curtas ou médias; parágrafos curtos (2–4 linhas).
 - Usa listas com hífen ou números só quando ajudam a ler.
-- NÃO uses linhas decorativas (---, ===, ___), caixas ASCII, tabelas feitas com caracteres, nem "figura X" / "tabela Y" inventadas.
+- NÃO uses linhas decorativas (---, ===, ___), caixas ASCII, tabelas feitas com caracteres, nem "figura X" / "tabela Y" inventadas — EXCEPTO o bloco ---PEDIDO--- / ---FIM--- que é obrigatório para criar a encomenda.
 - NÃO uses markdown pesado (títulos com #, blocos de código) salvo se o utilizador pedir código.
 - Quando comparares opções, escreve em texto corrido ou lista simples, sem grelhas ASCII.
-- Se precisares de destacar um ponto, usa uma frase directa — não um banner de símbolos.
 - Se não souberes algo da DMM, indica o WhatsApp 923 078 760.
 `;
 
@@ -107,7 +119,6 @@ export const aiChat = createServerFn({ method: "POST" })
     }));
     if (!history.length) throw new Error("Escreva uma mensagem.");
 
-    // Carrega a lista real de serviços e injecta no system prompt
     const servicesContext = await buildServicesContext();
     const systemPrompt = `${SYSTEM_ASSISTANT_BASE}\n\n${servicesContext}`;
 
@@ -119,12 +130,28 @@ export const aiChat = createServerFn({ method: "POST" })
     return { reply };
   });
 
+/** Cria o pedido a partir dos dados recolhidos pelo assistente */
+export const aiCreateOrder = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    (input: { serviceId: string; title: string; description?: string }) => input,
+  )
+  .handler(async ({ data }) => {
+    const result = await createOrder({
+      data: {
+        serviceId: data.serviceId,
+        title: data.title,
+        description: data.description || "",
+      },
+    });
+    return result;
+  });
+
 export const aiChatPdf = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
     (input: {
       question: string;
-      /** Texto já extraído do PDF (cliente ou servidor) */
       documentText: string;
       documentName?: string;
     }) => input,
@@ -226,7 +253,6 @@ export const aiChatPdfFile = createServerFn({ method: "POST" })
     if (!question) throw new Error("Escreva a pergunta.");
     const b64 = String(data.fileBase64 || "").replace(/^data:application\/pdf;base64,/, "");
     if (b64.length < 100) throw new Error("Ficheiro PDF inválido.");
-    // limite ~4MB base64
     if (b64.length > 5_500_000) throw new Error("PDF demasiado grande (máx. ~4 MB).");
 
     const buffer = Buffer.from(b64, "base64");

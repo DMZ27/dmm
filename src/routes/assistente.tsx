@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { aiChat, aiChatPdf, aiGenerateCv } from "@/lib/dmm/ai";
+import { aiChat, aiChatPdf, aiGenerateCv, aiCreateOrder } from "@/lib/dmm/ai";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -127,7 +127,49 @@ function ChatPanel() {
     setErr("");
     try {
       const { reply } = await aiChat({ data: { messages: next } });
-      setMessages((m) => [...m, { role: "assistant", content: reply }]);
+
+      // Detecta se a IA quer criar um pedido
+      const orderMatch = reply.match(/---PEDIDO---\s*(\{[\s\S]*?\})\s*---FIM---/);
+      if (orderMatch) {
+        try {
+          const orderData = JSON.parse(orderMatch[1]) as {
+            serviceId: string;
+            title: string;
+            description?: string;
+          };
+          const created = await aiCreateOrder({
+            data: {
+              serviceId: orderData.serviceId,
+              title: orderData.title,
+              description: orderData.description || "",
+            },
+          });
+          // Remove o bloco técnico da mensagem e mostra confirmação limpa
+          const cleanReply = reply
+            .replace(/---PEDIDO---[\s\S]*?---FIM---/, "")
+            .trim();
+          const confirmMsg =
+            (cleanReply ? cleanReply + "\n\n" : "") +
+            `Pedido criado com sucesso!\nNúmero do pedido: #${created.code}\nPodes acompanhar na área do cliente.`;
+          setMessages((m) => [...m, { role: "assistant", content: confirmMsg }]);
+        } catch (orderErr) {
+          const cleanReply = reply
+            .replace(/---PEDIDO---[\s\S]*?---FIM---/, "")
+            .trim();
+          setMessages((m) => [
+            ...m,
+            {
+              role: "assistant",
+              content:
+                (cleanReply ? cleanReply + "\n\n" : "") +
+                "Não consegui criar o pedido automaticamente. " +
+                (orderErr instanceof Error ? orderErr.message : "Tenta novamente ou usa a página de serviços."),
+            },
+          ]);
+        }
+      } else {
+        setMessages((m) => [...m, { role: "assistant", content: reply }]);
+      }
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "Erro");
     } finally {
