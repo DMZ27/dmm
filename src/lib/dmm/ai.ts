@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { chatLLM, type ChatMessage } from "@/lib/ai/llm";
-import { listServices, createOrder, listMyOrders } from "@/lib/dmm/server";
+import { listServices, createOrder, listMyOrders, postMessage } from "@/lib/dmm/server";
 import { STATUS_META, type OrderStatus } from "@/lib/dmm/status";
 import { CATEGORIES } from "@/lib/dmm/catalog";
 
@@ -86,6 +86,26 @@ SOBRE OS PEDIDOS DO CLIENTE:
 - Se o cliente perguntar "como está o meu pedido?" e tiver mais do que um, pergunta qual o número (#) ou mostra a lista resumida.
 - Se não tiver pedidos, diz isso claramente e oferece ajuda para criar um.
 - Nunca reveles informação de outros clientes.
+
+ENCAMINHAR PARA O ADMIN (alerta):
+Quando o cliente pedir para falar com um humano, reclamar, tiver um problema urgente, ou a situação for demasiado complexa para ti, podes criar um alerta para o admin.
+
+Condições para alertar:
+- Cliente diz explicitamente que quer falar com alguém da equipa / admin
+- Reclamação grave ou urgência
+- Pedido de informação que só o admin pode dar (preço final não cotado, ficheiros internos, etc.)
+
+Quando fores alertar, usa EXACTAMENTE este formato no final da resposta:
+
+---ALERTA---
+{"orderCode":123,"reason":"motivo curto e claro"}
+---FIM-ALERTA---
+
+Regras do alerta:
+- orderCode é o número (#) do pedido relacionado. Se o cliente não tiver pedidos, usa orderCode: null
+- reason: 1-2 frases objectivas (ex: "Cliente pede contacto humano sobre atraso no pedido #45")
+- Antes do bloco podes dizer ao cliente que vais avisar a equipa
+- Não abuses de alertas — só quando fizer sentido
 
 COMO AJUDAR A ESCOLHER (perguntas guiadas):
 Quando o cliente não souber exactamente o que precisa, ou disser coisas vagas como "preciso de ajuda", "quero um trabalho", "preciso de design", segue este fluxo:
@@ -189,6 +209,62 @@ export const aiCreateOrder = createServerFn({ method: "POST" })
       },
     });
     return result;
+  });
+
+
+/** Envia alerta para o admin: mensagem no pedido relacionado (visível na thread) */
+export const aiAlertAdmin = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    (input: { orderCode?: number | null; reason: string }) => input,
+  )
+  .handler(async ({ data }) => {
+    const reason = String(data.reason || "").trim().slice(0, 500);
+    if (reason.length < 5) throw new Error("Indique o motivo do alerta.");
+
+    const orders = await listMyOrders();
+    let targetOrderId: string | null = null;
+    let targetCode: number | null = null;
+
+    if (data.orderCode != null && orders?.length) {
+      const match = orders.find((o) => o.code === Number(data.orderCode));
+      if (match) {
+        targetOrderId = match.id;
+        targetCode = match.code;
+      }
+    }
+    // fallback: pedido mais recente
+    if (!targetOrderId && orders?.length) {
+      targetOrderId = orders[0].id;
+      targetCode = orders[0].code;
+    }
+
+    if (!targetOrderId) {
+      // Sem pedidos: não há thread onde colar a mensagem
+      return {
+        ok: false as const,
+        message:
+          "Não há pedidos onde registar o alerta. O cliente deve criar um pedido ou contactar o WhatsApp 923 078 760.",
+      };
+    }
+
+    const body = `[ALERTA IA → ADMIN]
+Motivo: ${reason}
+Pedido #${targetCode}
+O cliente pediu encaminhamento através do assistente.`;
+
+    await postMessage({
+      data: {
+        orderId: targetOrderId,
+        body,
+      },
+    });
+
+    return {
+      ok: true as const,
+      orderCode: targetCode,
+      message: `Alerta registado no pedido #${targetCode}. A equipa vai ver na área do pedido.`,
+    };
   });
 
 export const aiChatPdf = createServerFn({ method: "POST" })

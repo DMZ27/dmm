@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { aiChat, aiChatPdf, aiGenerateCv, aiCreateOrder } from "@/lib/dmm/ai";
+import { aiChat, aiChatPdf, aiGenerateCv, aiCreateOrder, aiAlertAdmin } from "@/lib/dmm/ai";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -128,8 +128,14 @@ function ChatPanel() {
     try {
       const { reply } = await aiChat({ data: { messages: next } });
 
-      // Detecta se a IA quer criar um pedido
+      // 1) Detecta criação de pedido
       const orderMatch = reply.match(/---PEDIDO---\s*(\{[\s\S]*?\})\s*---FIM---/);
+      // 2) Detecta alerta para admin
+      const alertMatch = reply.match(/---ALERTA---\s*(\{[\s\S]*?\})\s*---FIM-ALERTA---/);
+
+      let workingReply = reply;
+      let extraNotes: string[] = [];
+
       if (orderMatch) {
         try {
           const orderData = JSON.parse(orderMatch[1]) as {
@@ -144,32 +150,53 @@ function ChatPanel() {
               description: orderData.description || "",
             },
           });
-          // Remove o bloco técnico da mensagem e mostra confirmação limpa
-          const cleanReply = reply
-            .replace(/---PEDIDO---[\s\S]*?---FIM---/, "")
-            .trim();
-          const confirmMsg =
-            (cleanReply ? cleanReply + "\n\n" : "") +
-            `Pedido criado com sucesso!\nNúmero do pedido: #${created.code}\nPodes acompanhar na área do cliente.`;
-          setMessages((m) => [...m, { role: "assistant", content: confirmMsg }]);
+          workingReply = workingReply.replace(/---PEDIDO---[\s\S]*?---FIM---/, "").trim();
+          extraNotes.push(
+            `Pedido criado com sucesso!\nNúmero do pedido: #${created.code}\nPodes acompanhar na área do cliente.`,
+          );
         } catch (orderErr) {
-          const cleanReply = reply
-            .replace(/---PEDIDO---[\s\S]*?---FIM---/, "")
-            .trim();
-          setMessages((m) => [
-            ...m,
-            {
-              role: "assistant",
-              content:
-                (cleanReply ? cleanReply + "\n\n" : "") +
-                "Não consegui criar o pedido automaticamente. " +
-                (orderErr instanceof Error ? orderErr.message : "Tenta novamente ou usa a página de serviços."),
-            },
-          ]);
+          workingReply = workingReply.replace(/---PEDIDO---[\s\S]*?---FIM---/, "").trim();
+          extraNotes.push(
+            "Não consegui criar o pedido automaticamente. " +
+              (orderErr instanceof Error ? orderErr.message : "Tenta novamente ou usa a página de serviços."),
+          );
         }
-      } else {
-        setMessages((m) => [...m, { role: "assistant", content: reply }]);
       }
+
+      if (alertMatch) {
+        try {
+          const alertData = JSON.parse(alertMatch[1]) as {
+            orderCode?: number | null;
+            reason: string;
+          };
+          const result = await aiAlertAdmin({
+            data: {
+              orderCode: alertData.orderCode ?? null,
+              reason: alertData.reason || "Cliente pediu encaminhamento",
+            },
+          });
+          workingReply = workingReply.replace(/---ALERTA---[\s\S]*?---FIM-ALERTA---/, "").trim();
+          if (result.ok) {
+            extraNotes.push(result.message);
+          } else {
+            extraNotes.push(
+              result.message +
+                " Podes contactar directamente o WhatsApp 923 078 760.",
+            );
+          }
+        } catch (alertErr) {
+          workingReply = workingReply.replace(/---ALERTA---[\s\S]*?---FIM-ALERTA---/, "").trim();
+          extraNotes.push(
+            "Não consegui registar o alerta. " +
+              (alertErr instanceof Error ? alertErr.message : "Contacta o WhatsApp 923 078 760."),
+          );
+        }
+      }
+
+      const finalMsg =
+        workingReply +
+        (extraNotes.length ? "\n\n" + extraNotes.join("\n\n") : "");
+      setMessages((m) => [...m, { role: "assistant", content: finalMsg.trim() }]);
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "Erro");
     } finally {
