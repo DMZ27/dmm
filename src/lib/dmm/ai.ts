@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { chatLLM, type ChatMessage } from "@/lib/ai/llm";
-import { listServices, createOrder, listMyOrders, postMessage } from "@/lib/dmm/server";
+import { listServices, createOrder, listMyOrders, postMessage, adminStats, getOrder } from "@/lib/dmm/server";
 import { STATUS_META, type OrderStatus } from "@/lib/dmm/status";
 import { CATEGORIES } from "@/lib/dmm/catalog";
 
@@ -265,6 +265,95 @@ O cliente pediu encaminhamento através do assistente.`;
       orderCode: targetCode,
       message: `Alerta registado no pedido #${targetCode}. A equipa vai ver na área do pedido.`,
     };
+  });
+
+
+const SYSTEM_ADMIN = `És o assistente interno da equipa DMM (Benguela).
+Ajudas o admin a gerir pedidos: priorizar, resumir e redigir respostas profissionais ao cliente.
+Português de Angola/Portugal, tom claro e directo.
+Não inventes dados. Baseia-te apenas no que te for fornecido.
+Não uses markdown pesado nem linhas decorativas.`;
+
+/** Resumo e priorização dos pedidos abertos (só admin) */
+export const aiAdminPrioritize = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async () => {
+    const data = await adminStats();
+    // adminStats já faz requireAdmin internamente
+    const openStatuses = new Set([
+      "RECEIVED",
+      "ANALYSIS",
+      "QUOTED",
+      "PAYMENT_PENDING",
+      "IN_PRODUCTION",
+      "WAITING_INFO",
+    ]);
+    const open = (data.orders || []).filter((o) => openStatuses.has(o.status));
+
+    const lines = open.map((o) => {
+      const st = STATUS_META[o.status as OrderStatus]?.label || o.status;
+      return `#${o.code} | ${o.client_name || "Cliente"} | ${o.service_name} | "${o.title}" | ${st} | criado ${o.created_at}${o.deadline ? ` | prazo ${o.deadline}` : ""}${o.quoted_price ? ` | ${o.quoted_price}` : ""}`;
+    });
+
+    const prompt = `Com base nestes pedidos abertos da DMM, faz:
+1) Resumo executivo (3-5 linhas): quantos estão abertos e o que mais urge.
+2) Lista prioritária (do mais urgente ao menos), com 1 frase de motivo por pedido.
+3) Sugestão de próximas acções para o admin (máx. 5 bullets).
+
+Pedidos:
+${lines.length ? lines.join("
+") : "(nenhum pedido aberto nas últimas entradas)"}
+
+Contagens gerais: ${JSON.stringify(data.counts)}`;
+
+    const reply = await chatLLM([
+      { role: "system", content: SYSTEM_ADMIN },
+      { role: "user", content: prompt },
+    ]);
+    return { reply, openCount: open.length };
+  });
+
+/** Rascunho de resposta ao cliente para um pedido concreto (só admin) */
+export const aiAdminDraftReply = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    (input: { orderId: string; instruction?: string }) => input,
+  )
+  .handler(async ({ data }) => {
+    const payload = await getOrder({ data: data.orderId });
+    if (payload.me.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+    const { order, messages, quote } = payload;
+    const statusLabel = STATUS_META[order.status as OrderStatus]?.label || order.status;
+    const recentMsgs = (messages || [])
+      .slice(-8)
+      .map((m) => `[${m.author}] ${m.body}`).join("
+");
+
+    const instruction = (data.instruction || "").trim().slice(0, 500);
+
+    const prompt = `Redige um rascunho de mensagem profissional para enviar ao cliente deste pedido.
+
+Pedido #${order.code}
+Cliente: ${order.client_name || "—"}
+Serviço: ${order.service_name}
+Título: ${order.title}
+Estado: ${statusLabel}
+Descrição: ${order.description || "—"}
+Orçamento: ${quote ? `${quote.price} (prazo ${quote.deadline})` : order.quoted_price || "ainda sem orçamento"}
+
+Últimas mensagens:
+${recentMsgs || "(sem mensagens)"}
+
+${instruction ? `Instrução extra do admin: ${instruction}` : "Tom: prestável, claro, sem prometer prazos que não estejam nos dados."}
+
+Escreve só o texto da mensagem (pronto a colar), em português de Angola/Portugal.`;
+
+    const reply = await chatLLM([
+      { role: "system", content: SYSTEM_ADMIN },
+      { role: "user", content: prompt },
+    ]);
+    return { reply };
   });
 
 export const aiChatPdf = createServerFn({ method: "POST" })

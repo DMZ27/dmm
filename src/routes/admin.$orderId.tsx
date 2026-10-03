@@ -13,12 +13,13 @@ import {
   type MessageRow,
   type OrderPayload,
 } from "@/lib/dmm/server";
+import { aiAdminDraftReply } from "@/lib/dmm/ai";
 import { ORDER_STATUSES, STATUS_META } from "@/lib/dmm/status";
 import { downloadBase64, packFiles } from "@/lib/dmm/files-client";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatKz, orderCode } from "@/lib/utils";
 
@@ -32,6 +33,8 @@ function AdminOrder() {
   const [body, setBody] = useState("");
   const [status, setStatus] = useState("DELIVERED");
   const [busy, setBusy] = useState(false);
+  const [aiDraftBusy, setAiDraftBusy] = useState(false);
+  const [aiInstruction, setAiInstruction] = useState("");
 
   const load = useCallback(() => {
     getOrder({ data: orderId })
@@ -72,6 +75,21 @@ function AdminOrder() {
     setBody("");
     setBusy(false);
     load();
+  }
+
+  async function draftWithAi() {
+    setAiDraftBusy(true);
+    setErr("");
+    try {
+      const res = await aiAdminDraftReply({
+        data: { orderId, instruction: aiInstruction || undefined },
+      });
+      setBody(res.reply);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Erro no rascunho IA");
+    } finally {
+      setAiDraftBusy(false);
+    }
   }
 
   async function deliver(list: FileList | null) {
@@ -141,6 +159,22 @@ function AdminOrder() {
             ))}
           </div>
           <form onSubmit={send} className="mt-4 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <Input
+                value={aiInstruction}
+                onChange={(e) => setAiInstruction(e.target.value)}
+                placeholder="Instrução para o rascunho IA (opcional)"
+                className="min-w-[200px] flex-1"
+              />
+              <Button
+                type="button"
+                variant="cream"
+                disabled={aiDraftBusy}
+                onClick={() => void draftWithAi()}
+              >
+                {aiDraftBusy ? "A redigir…" : "Rascunho IA"}
+              </Button>
+            </div>
             <Textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Responder ao cliente..." />
             <Button type="submit" disabled={busy}>
               Enviar <Send size={15} />

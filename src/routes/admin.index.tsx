@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { adminResetClientPassword, adminStats, sendQuote, updateOrderStatus, type OrderListRow } from "@/lib/dmm/server";
+import { aiAdminPrioritize } from "@/lib/dmm/ai";
 import { ORDER_STATUSES, STATUS_META } from "@/lib/dmm/status";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,11 +24,27 @@ function Admin() {
   const [resetPass, setResetPass] = useState("");
   const [resetMsg, setResetMsg] = useState("");
   const [resetBusy, setResetBusy] = useState(false);
+  const [aiSummary, setAiSummary] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiErr, setAiErr] = useState("");
 
   function load() {
     adminStats()
       .then(setData)
       .catch((e) => setErr(e instanceof Error ? e.message : "Erro"));
+  }
+
+  async function runAiSummary() {
+    setAiBusy(true);
+    setAiErr("");
+    try {
+      const res = await aiAdminPrioritize();
+      setAiSummary(res.reply);
+    } catch (e) {
+      setAiErr(e instanceof Error ? e.message : "Erro na IA");
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   useEffect(() => {
@@ -181,6 +198,30 @@ function Admin() {
             </Button>
           </form>
           {resetMsg && <p className="mt-3 text-sm text-fog">{resetMsg}</p>}
+        </section>
+
+
+        <section className="mt-8 rounded-2xl border border-line bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-bold">Assistente do admin</h2>
+              <p className="mt-1 text-sm text-fog">Resumo e priorização dos pedidos abertos.</p>
+            </div>
+            <Button
+              type="button"
+              className="h-10 rounded-full"
+              disabled={aiBusy}
+              onClick={() => void runAiSummary()}
+            >
+              {aiBusy ? "A analisar…" : "Gerar resumo IA"}
+            </Button>
+          </div>
+          {aiErr && <p className="mt-3 text-sm text-bad">{aiErr}</p>}
+          {aiSummary && (
+            <div className="mt-4 whitespace-pre-wrap rounded-xl bg-[#f4f5f8] px-4 py-3 text-sm leading-relaxed text-ink">
+              {aiSummary}
+            </div>
+          )}
         </section>
 
         <div className="mt-8">
