@@ -301,8 +301,7 @@ export const aiAdminPrioritize = createServerFn({ method: "GET" })
 3) Sugestão de próximas acções para o admin (máx. 5 bullets).
 
 Pedidos:
-${lines.length ? lines.join("
-") : "(nenhum pedido aberto nas últimas entradas)"}
+${lines.length ? lines.join("\n") : "(nenhum pedido aberto nas últimas entradas)"}
 
 Contagens gerais: ${JSON.stringify(data.counts)}`;
 
@@ -327,8 +326,7 @@ export const aiAdminDraftReply = createServerFn({ method: "POST" })
     const statusLabel = STATUS_META[order.status as OrderStatus]?.label || order.status;
     const recentMsgs = (messages || [])
       .slice(-8)
-      .map((m) => `[${m.author}] ${m.body}`).join("
-");
+      .map((m) => `[${m.author}] ${m.body}`).join("\n");
 
     const instruction = (data.instruction || "").trim().slice(0, 500);
 
