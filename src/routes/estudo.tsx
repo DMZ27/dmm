@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   BookOpen,
   Brain,
@@ -13,7 +13,15 @@ import {
   CheckCircle2,
   ArrowRight,
 } from "lucide-react";
-import { aiStudyPlan } from "@/lib/dmm/estudo";
+import {
+  aiStudyPlan,
+  deleteStudyPlan,
+  listMyStudyPlans,
+  saveStudyPlan,
+  type StudyLink,
+  type StudyPlanRow,
+} from "@/lib/dmm/estudo";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -54,9 +62,8 @@ const WORK_TYPES = [
 
 const YEARS = ["1.º ano", "2.º ano", "3.º ano", "4.º ano", "5.º ano / finalista"];
 
-type LinkItem = { name: string; url: string; hint: string };
-
 function EstudoPage() {
+  const { user, isPending: authPending } = useCurrentUserState();
   const [topic, setTopic] = useState("");
   const [area, setArea] = useState(AREAS[0]);
   const [year, setYear] = useState(YEARS[0]);
@@ -65,7 +72,33 @@ function EstudoPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [reply, setReply] = useState("");
-  const [links, setLinks] = useState<LinkItem[]>([]);
+  const [links, setLinks] = useState<StudyLink[]>([]);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+  const [saved, setSaved] = useState<StudyPlanRow[] | null>(null);
+  const [savedErr, setSavedErr] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  function loadSaved() {
+    if (!user) {
+      setSaved(null);
+      return;
+    }
+    listMyStudyPlans()
+      .then((rows) => {
+        setSaved(rows);
+        setSavedErr("");
+      })
+      .catch((e) => {
+        setSavedErr(e instanceof Error ? e.message : "Não foi possível carregar os planos.");
+        setSaved([]);
+      });
+  }
+
+  useEffect(() => {
+    if (!authPending) loadSaved();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authPending, user?.id]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -78,6 +111,7 @@ function EstudoPage() {
     setErr("");
     setReply("");
     setLinks([]);
+    setSaveMsg("");
     try {
       const res = await aiStudyPlan({
         data: {
@@ -95,6 +129,60 @@ function EstudoPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function onSave() {
+    if (!reply) return;
+    if (!user) {
+      setSaveMsg("Cria conta ou entra para guardar o plano.");
+      return;
+    }
+    setSaveBusy(true);
+    setSaveMsg("");
+    try {
+      await saveStudyPlan({
+        data: {
+          topic: topic.trim(),
+          area,
+          year,
+          workType,
+          deadline: deadline.trim() || undefined,
+          planText: reply,
+          links,
+        },
+      });
+      setSaveMsg("Plano guardado na tua conta.");
+      loadSaved();
+    } catch (ex) {
+      setSaveMsg(ex instanceof Error ? ex.message : "Erro ao guardar.");
+    } finally {
+      setSaveBusy(false);
+    }
+  }
+
+  async function onDelete(id: string) {
+    if (!confirm("Apagar este plano guardado?")) return;
+    try {
+      await deleteStudyPlan({ data: { id } });
+      setSaved((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
+      if (openId === id) setOpenId(null);
+    } catch (ex) {
+      setSavedErr(ex instanceof Error ? ex.message : "Erro ao apagar.");
+    }
+  }
+
+  function reopen(plan: StudyPlanRow) {
+    setTopic(plan.topic);
+    if (plan.area) setArea(plan.area);
+    if (plan.year_label) setYear(plan.year_label);
+    if (plan.work_type) setWorkType(plan.work_type);
+    setDeadline(plan.deadline || "");
+    setReply(plan.plan_text);
+    const lj = plan.links_json;
+    setLinks(Array.isArray(lj) ? lj : []);
+    setOpenId(plan.id);
+    setSaveMsg("");
+    document.getElementById("plano")?.scrollIntoView({ behavior: "smooth" });
   }
 
   return (
@@ -324,6 +412,26 @@ function EstudoPage() {
                   </ul>
                 </div>
                 <div className="rounded-2xl border border-line bg-white p-5">
+                  <p className="text-sm font-semibold text-ink">Guardar este plano</p>
+                  <p className="mt-1 text-xs text-fog">
+                    Com conta, ficas com o histórico para reveres quando quiseres.
+                  </p>
+                  <Button
+                    type="button"
+                    className="mt-3 h-10 w-full rounded-full"
+                    disabled={saveBusy || !reply}
+                    onClick={() => void onSave()}
+                  >
+                    {saveBusy ? "A guardar…" : user ? "Guardar na minha conta" : "Entrar para guardar"}
+                  </Button>
+                  {!user && (
+                    <Button asChild variant="cream" className="mt-2 h-10 w-full rounded-full">
+                      <Link to="/login">Entrar / Registar</Link>
+                    </Button>
+                  )}
+                  {saveMsg && <p className="mt-2 text-xs text-fog">{saveMsg}</p>}
+                </div>
+                <div className="rounded-2xl border border-line bg-white p-5">
                   <p className="text-sm font-semibold text-ink">Precisas de formatação ou revisão?</p>
                   <p className="mt-1 text-xs text-fog">
                     APA/ABNT, estrutura e entrega com acompanhamento no site.
@@ -339,6 +447,86 @@ function EstudoPage() {
                 </div>
               </div>
             </div>
+          )}
+        </div>
+      </section>
+
+      {/* Planos guardados — Fase 2 */}
+      <section id="meus-planos" className="scroll-mt-24 border-t border-line bg-white">
+        <div className="mx-auto w-full max-w-[1100px] px-4 py-12">
+          <h2 className="font-display text-2xl font-bold text-ink">Os meus planos</h2>
+          <p className="mt-1 text-sm text-fog">
+            Histórico na tua conta. Só tu vês estes planos.
+          </p>
+
+          {authPending && (
+            <p className="mt-6 text-sm text-fog">A carregar sessão…</p>
+          )}
+
+          {!authPending && !user && (
+            <div className="mt-6 rounded-2xl border border-dashed border-line bg-[#f4f5f8] px-5 py-8 text-center">
+              <p className="text-sm text-fog">
+                Entra na tua conta para guardar e rever planos de pesquisa.
+              </p>
+              <Button asChild className="mt-4 h-11 rounded-full">
+                <Link to="/login">Entrar / Registar</Link>
+              </Button>
+            </div>
+          )}
+
+          {!authPending && user && savedErr && (
+            <p className="mt-4 text-sm text-bad">{savedErr}</p>
+          )}
+
+          {!authPending && user && saved && saved.length === 0 && (
+            <p className="mt-6 text-sm text-fog">
+              Ainda não tens planos guardados. Gera um acima e clica em “Guardar na minha conta”.
+            </p>
+          )}
+
+          {!authPending && user && saved && saved.length > 0 && (
+            <ul className="mt-6 space-y-3">
+              {saved.map((p) => (
+                <li
+                  key={p.id}
+                  className="rounded-2xl border border-line bg-[#f4f5f8] px-4 py-3 sm:px-5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-ink">{p.topic}</p>
+                      <p className="mt-0.5 text-xs text-fog">
+                        {[p.area, p.year_label, p.work_type].filter(Boolean).join(" · ")}
+                        {p.created_at ? ` · ${p.created_at.slice(0, 10)}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="cream"
+                        className="h-9 rounded-full text-xs"
+                        onClick={() => reopen(p)}
+                      >
+                        Abrir
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="cream"
+                        className="h-9 rounded-full text-xs text-bad"
+                        onClick={() => void onDelete(p.id)}
+                      >
+                        Apagar
+                      </Button>
+                    </div>
+                  </div>
+                  {openId === p.id && (
+                    <p className="mt-3 max-h-40 overflow-y-auto whitespace-pre-wrap border-t border-line pt-3 text-xs leading-relaxed text-fog">
+                      {p.plan_text.slice(0, 800)}
+                      {p.plan_text.length > 800 ? "…" : ""}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </section>
