@@ -9,6 +9,7 @@ import { cn, whatsappHref } from "@/lib/utils";
 
 const NAV = [
   { to: "/", label: "Início", hash: undefined as string | undefined },
+  { to: "/estudo", label: "Estudo", hash: undefined },
   { to: "/servicos", label: "Serviços", hash: undefined },
   { to: "/", label: "Sobre Nós", hash: "sobre" },
   { to: "/assistente", label: "Assistente IA", hash: undefined },
