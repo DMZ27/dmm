@@ -126,7 +126,7 @@ export const adminSaveHighlight = createServerFn({ method: "POST" })
     const title = String(data.title || "").trim().slice(0, 120);
     if (title.length < 2) throw new Error("Indique um título.");
     const subtitle = (data.subtitle ?? "").trim().slice(0, 200) || null;
-    const image_url = (data.image_url ?? "").trim().slice(0, 800) || null;
+    const image_url = (data.image_url ?? "").trim().slice(0, 2_500_000) || null; // URL ou data:image (upload)
     const link_url = (data.link_url ?? "").trim().slice(0, 800) || null;
     const link_label = (data.link_label ?? "Ver mais").trim().slice(0, 40) || "Ver mais";
     const sort_order = Number.isFinite(data.sort_order) ? Number(data.sort_order) : 0;
@@ -189,7 +189,7 @@ export const adminSaveArticle = createServerFn({ method: "POST" })
     if (title.length < 2) throw new Error("Indique um título.");
     if (body.length < 10) throw new Error("Escreva o conteúdo do artigo.");
     const excerpt = (data.excerpt ?? "").trim().slice(0, 300) || null;
-    const cover_url = (data.cover_url ?? "").trim().slice(0, 800) || null;
+    const cover_url = (data.cover_url ?? "").trim().slice(0, 2_500_000) || null;
     const published = Boolean(data.published);
     const id = data.id?.trim() || crypto.randomUUID();
     let slug = (data.slug ?? "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-") || slugify(title);

@@ -11,7 +11,7 @@ import {
   Star,
   CheckCircle2,
 } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { CATEGORIES, CONTACT } from "@/lib/dmm/catalog";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -19,6 +19,8 @@ import { Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { AutoSlideCarousel, ServiceMarquee } from "@/components/dmm/carousel";
 import { HomeCmsSections } from "@/components/dmm/home-cms";
+import { listHighlightsPublic } from "@/lib/dmm/cms";
+import { resolveHighlightCover } from "@/lib/dmm/video-thumb";
 import { cn, whatsappHref } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -81,6 +83,29 @@ function Home() {
   const navigate = useNavigate();
   const [cat, setCat] = useState(CATEGORIES[0].id);
   const [nota, setNota] = useState("");
+  const [portfolioSlides, setPortfolioSlides] = useState(PORTFOLIO_SLIDES);
+
+  useEffect(() => {
+    listHighlightsPublic()
+      .then((rows) => {
+        const mapped = (rows || [])
+          .map((h) => {
+            const image = resolveHighlightCover(h.image_url, h.link_url) || h.image_url || "";
+            if (!image) return null;
+            return {
+              id: h.id,
+              image,
+              title: h.title,
+              caption: h.subtitle || h.link_label || "Trabalho DMM",
+            };
+          })
+          .filter(Boolean) as typeof PORTFOLIO_SLIDES;
+        if (mapped.length) setPortfolioSlides(mapped);
+      })
+      .catch(() => {
+        /* mantém slides genéricos */
+      });
+  }, []);
 
   function start(e: FormEvent) {
     e.preventDefault();
@@ -348,7 +373,7 @@ function Home() {
             </div>
           </div>
           <div className="mt-10">
-            <AutoSlideCarousel slides={PORTFOLIO_SLIDES} intervalMs={4200} />
+            <AutoSlideCarousel slides={portfolioSlides} intervalMs={4200} />
           </div>
         </div>
       </section>

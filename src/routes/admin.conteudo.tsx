@@ -19,6 +19,47 @@ import { resolveHighlightCover } from "@/lib/dmm/video-thumb";
 
 export const Route = createFileRoute("/admin/conteudo")({ component: AdminConteudo });
 
+/** Redimensiona e comprime imagem no browser (JPEG) para caber na BD */
+function fileToCompressedDataUrl(file: File, maxSide = 1600, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Escolhe um ficheiro de imagem (JPG, PNG ou WebP)."));
+      return;
+    }
+    // limite ~4 MB original
+    if (file.size > 6_000_000) {
+      reject(new Error("Imagem demasiado grande (máx. ~6 MB)."));
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      const scale = Math.min(1, maxSide / Math.max(width, height));
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Não foi possível processar a imagem."));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Não foi possível ler a imagem."));
+    };
+    img.src = url;
+  });
+}
+
+
+
 function AdminConteudo() {
   const { user, isPending } = useCurrentUserState();
   const [highlights, setHighlights] = useState<Highlight[] | null>(null);
@@ -33,6 +74,7 @@ function AdminConteudo() {
   const [hLink, setHLink] = useState("");
   const [hLabel, setHLabel] = useState("Ver vídeo");
   const [hBusy, setHBusy] = useState(false);
+  const [hUploading, setHUploading] = useState(false);
 
   // article form
   const [aTitle, setATitle] = useState("");
@@ -138,7 +180,7 @@ function AdminConteudo() {
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brass">Conteúdo</p>
             <h1 className="mt-1 font-display text-3xl font-bold">Publicidade e blog</h1>
             <p className="mt-1 text-sm text-fog">
-              Destaques na homepage (imagem + título + link de vídeo) e artigos do mini-blog.
+              Imagens do slideshow “Alguns dos Nossos Trabalhos”, destaques e artigos do mini-blog. Carrega fotos reais dos teus trabalhos — aparecem no site sem precisar de código.
             </p>
           </div>
           <Button asChild variant="cream" className="h-11 rounded-full">
@@ -153,9 +195,9 @@ function AdminConteudo() {
 
         {/* Destaques */}
         <section className="mt-8 rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="font-display text-xl font-bold">Novo destaque / publicidade</h2>
+          <h2 className="font-display text-xl font-bold">Novo trabalho / slide da homepage</h2>
           <p className="mt-1 text-sm text-fog">
-            Aparece na página inicial. No campo link coloque o URL do vídeo (YouTube, TikTok, etc.).
+            Aparece no slideshow grande da homepage e nos destaques. No campo link coloque o URL do vídeo (YouTube, TikTok, etc.).
             Podes pôr uma imagem tua (https://…) ou deixar vazio: com link YouTube a capa gera-se sozinha.
           </p>
           <form onSubmit={saveHighlight} className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -167,12 +209,41 @@ function AdminConteudo() {
               <label className="text-xs font-semibold text-fog">Subtítulo (opcional)</label>
               <Input className="mt-1" value={hSub} onChange={(e) => setHSub(e.target.value)} />
             </div>
-            <div>
-              <label className="text-xs font-semibold text-fog">URL da imagem (opcional)</label>
-              <Input className="mt-1" placeholder="https://… (deixa vazio para capa automática do YouTube)" value={hImg} onChange={(e) => setHImg(e.target.value)} />
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold text-fog">Imagem do trabalho (recomendado)</label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="mt-1 block w-full text-sm text-fog file:mr-3 file:rounded-full file:border-0 file:bg-navy file:px-4 file:py-2 file:text-sm file:font-semibold file:text-paper hover:file:bg-navy/90"
+                disabled={hUploading || hBusy}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setHUploading(true);
+                  setMsg("");
+                  try {
+                    const dataUrl = await fileToCompressedDataUrl(file);
+                    setHImg(dataUrl);
+                    setMsg("Imagem pronta. Preenche o título e publica.");
+                  } catch (err) {
+                    setMsg(err instanceof Error ? err.message : "Erro ao processar imagem");
+                  } finally {
+                    setHUploading(false);
+                    e.target.value = "";
+                  }
+                }}
+              />
               <p className="mt-1 text-[11px] text-fog">
-                Se preencheres, esta imagem tem prioridade. Se ficares vazio e o link for YouTube, a capa do vídeo é usada automaticamente.
+                Escolhe uma foto do teu PC (trabalho real). É comprimida automaticamente — sem código nem git.
               </p>
+              <label className="mt-3 block text-xs font-semibold text-fog">Ou cola um URL de imagem (opcional)</label>
+              <Input
+                className="mt-1"
+                placeholder="https://… ou deixa vazio se já carregaste ficheiro"
+                value={hImg.startsWith("data:") ? "" : hImg}
+                onChange={(e) => setHImg(e.target.value)}
+              />
+              {hUploading && <p className="mt-1 text-xs text-brass">A processar imagem…</p>}
             </div>
             <div>
               <label className="text-xs font-semibold text-fog">URL do vídeo / link</label>
