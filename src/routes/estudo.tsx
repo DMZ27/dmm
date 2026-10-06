@@ -21,6 +21,7 @@ import {
   type StudyLink,
   type StudyPlanRow,
 } from "@/lib/dmm/estudo";
+import { STUDY_TEMPLATES, type StudyTemplate } from "@/lib/dmm/estudo-templates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -62,6 +63,30 @@ const WORK_TYPES = [
 
 const YEARS = ["1.º ano", "2.º ano", "3.º ano", "4.º ano", "5.º ano / finalista"];
 
+const FREE_AI_PER_DAY = 5;
+const LS_KEY = "dmm_estudo_ai_day";
+
+function getAnonAiCount(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw) as { day: string; n: number };
+    const today = new Date().toISOString().slice(0, 10);
+    if (parsed.day !== today) return 0;
+    return parsed.n || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function bumpAnonAiCount() {
+  if (typeof window === "undefined") return;
+  const today = new Date().toISOString().slice(0, 10);
+  const n = getAnonAiCount() + 1;
+  localStorage.setItem(LS_KEY, JSON.stringify({ day: today, n }));
+}
+
 function EstudoPage() {
   const { user, isPending: authPending } = useCurrentUserState();
   const [topic, setTopic] = useState("");
@@ -78,6 +103,7 @@ function EstudoPage() {
   const [saved, setSaved] = useState<StudyPlanRow[] | null>(null);
   const [savedErr, setSavedErr] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [activeTpl, setActiveTpl] = useState<StudyTemplate | null>(null);
 
   function loadSaved() {
     if (!user) {
@@ -107,6 +133,12 @@ function EstudoPage() {
       setErr("Escreve o tema do teu trabalho.");
       return;
     }
+    if (!user && getAnonAiCount() >= FREE_AI_PER_DAY) {
+      setErr(
+        `Limite diário gratuito de ${FREE_AI_PER_DAY} planos atingido. Cria conta para continuar e guardar o histórico.`,
+      );
+      return;
+    }
     setBusy(true);
     setErr("");
     setReply("");
@@ -124,6 +156,7 @@ function EstudoPage() {
       });
       setReply(res.reply);
       setLinks(res.links || []);
+      if (!user) bumpAnonAiCount();
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "Não foi possível gerar o plano.");
     } finally {
@@ -216,6 +249,12 @@ function EstudoPage() {
               className="inline-flex h-11 items-center gap-2 rounded-full bg-brass px-5 text-sm font-bold text-ink shadow-[var(--shadow-gold)]"
             >
               <Search size={16} /> Começar pelo tema
+            </a>
+            <a
+              href="#modelos"
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-paper/25 px-5 text-sm font-semibold text-paper hover:bg-white/10"
+            >
+              <BookOpen size={16} /> Modelos
             </a>
             <Link
               to="/assistente"
@@ -449,6 +488,118 @@ function EstudoPage() {
             </div>
           )}
         </div>
+      </section>
+
+      {/* Modelos — Fase 3 */}
+      <section id="modelos" className="scroll-mt-24 border-t border-line bg-cream">
+        <div className="mx-auto w-full max-w-[1100px] px-4 py-12">
+          <h2 className="font-display text-2xl font-bold text-ink">Modelos e checklists</h2>
+          <p className="mt-1 max-w-2xl text-sm text-fog">
+            Ferramentas práticas para o semestre. Alguns modelos completos pedem conta gratuita.
+            Para formatação APA/ABNT e monografia por etapas, usa os serviços DMM.
+          </p>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {STUDY_TEMPLATES.map((tpl) => {
+              const locked = tpl.requiresLogin && !user;
+              return (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => setActiveTpl(tpl)}
+                  className="rounded-2xl border border-line bg-white p-5 text-left shadow-sm transition hover:border-brass/40"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-brass">
+                      {tpl.audience}
+                    </p>
+                    {tpl.requiresLogin && (
+                      <span className="rounded-full bg-navy/10 px-2 py-0.5 text-[10px] font-semibold text-navy">
+                        Conta
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="mt-2 font-display text-base font-bold text-ink">{tpl.title}</h3>
+                  <p className="mt-1 text-sm text-fog">{tpl.summary}</p>
+                  <p className="mt-3 text-xs font-semibold text-brass">
+                    {locked ? "Ver (pede login)" : "Abrir modelo"}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-navy px-5 py-5 text-paper">
+            <div>
+              <p className="font-display text-lg font-bold">Precisas do trabalho formatado ou da monografia organizada?</p>
+              <p className="mt-1 text-sm text-paper/70">
+                A DMM em Benguela faz formatação, revisão de estrutura e acompanhamento no site.
+              </p>
+            </div>
+            <Button asChild className="h-11 shrink-0 rounded-full bg-brass text-ink hover:bg-brass/90">
+              <Link to="/servicos">Ver serviços académicos</Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Modal simples de modelo */}
+        {activeTpl && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 p-4 sm:items-center"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setActiveTpl(null)}
+          >
+            <div
+              className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-brass">
+                    {activeTpl.audience}
+                  </p>
+                  <h3 className="mt-1 font-display text-xl font-bold text-ink">{activeTpl.title}</h3>
+                </div>
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-fog hover:text-ink"
+                  onClick={() => setActiveTpl(null)}
+                >
+                  Fechar
+                </button>
+              </div>
+
+              {activeTpl.requiresLogin && !user ? (
+                <div className="mt-6 rounded-xl bg-[#f4f5f8] px-4 py-6 text-center">
+                  <p className="text-sm text-fog">
+                    Este modelo completo está disponível com conta gratuita DMM.
+                  </p>
+                  <Button asChild className="mt-4 h-11 rounded-full">
+                    <Link to="/login">Entrar / Registar</Link>
+                  </Button>
+                  <p className="mt-3 text-xs text-fog">{activeTpl.summary}</p>
+                </div>
+              ) : (
+                <>
+                  <pre className="mt-4 whitespace-pre-wrap font-sans text-sm leading-relaxed text-ink">
+                    {activeTpl.body}
+                  </pre>
+                  <Button
+                    type="button"
+                    variant="cream"
+                    className="mt-4 h-10 rounded-full"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(activeTpl.body);
+                    }}
+                  >
+                    Copiar texto
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Planos guardados — Fase 2 */}

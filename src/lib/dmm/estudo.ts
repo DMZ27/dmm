@@ -156,6 +156,21 @@ export const saveStudyPlan = createServerFn({ method: "POST" })
     if (topic.length < 3) throw new Error("Tema inválido.");
     if (planText.length < 20) throw new Error("Plano vazio.");
 
+    // Limite gratuito: 15 planos guardados (empura organização / serviços DMM)
+    try {
+      const counts = await sql<{ n: number }>`
+        select count(*)::int as n from study_plans where user_id = ${context.userId}
+      `;
+      if ((counts[0]?.n ?? 0) >= 15) {
+        throw new Error(
+          "Atingiste o limite de 15 planos guardados no plano gratuito. Apaga alguns ou contacta a DMM para apoio académico completo.",
+        );
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("15 planos")) throw e;
+      // se a tabela falhar, deixa tentar o insert
+    }
+
     const id = crypto.randomUUID();
     const area = (data.area || "").trim().slice(0, 80) || null;
     const year_label = (data.year || "").trim().slice(0, 40) || null;
