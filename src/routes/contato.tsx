@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Mail, MapPin, MessageCircle, UserRound } from "lucide-react";
 import { CONTACT } from "@/lib/dmm/catalog";
 import { whatsappHref } from "@/lib/utils";
@@ -16,6 +16,12 @@ function Contato() {
       <p className="mt-3 max-w-xl text-fog">
         Atendimento para qualquer zona de Benguela. O canal mais rápido é o WhatsApp; os pedidos formais ficam na central.
       </p>
+      <Link
+        to="/local"
+        className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-navy px-5 text-sm font-semibold text-paper hover:bg-navy/90"
+      >
+        Ver mapa e rota até à DMM
+      </Link>
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {

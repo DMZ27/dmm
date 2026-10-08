@@ -139,6 +139,10 @@ export const CONTACT = {
   phoneDigits: "923078760",
   city: "Benguela, Angola",
   whatsapp: "244923078760",
+  /** Coordenadas aproximadas do ponto DMM — ajusta quando tiveres a morada exacta */
+  lat: -12.5763,
+  lng: 13.4055,
+  addressLabel: "Central DMM — Benguela",
 };
 
 export const MAX_FILE_CHARS = 1_200_000;

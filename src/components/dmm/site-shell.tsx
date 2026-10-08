@@ -13,6 +13,7 @@ const NAV = [
   { to: "/servicos", label: "Serviços", hash: undefined },
   { to: "/", label: "Sobre Nós", hash: "sobre" },
   { to: "/assistente", label: "Assistente IA", hash: undefined },
+  { to: "/local", label: "Localização", hash: undefined },
   { to: "/contato", label: "Contactos", hash: undefined },
 ];
 
